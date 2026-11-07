@@ -76,6 +76,46 @@ def test_mu_zero_equivalence():
         assert max_diff < 1e-7, f"mu=0 equivalence failed! Max diff: {max_diff}"
     print("\nmu=0 equivalence passed with max diff < 1e-7!")
 
+def test_mu_zero_equivalence_cuda_tolerant():
+    """
+    CUDA-tolerant version of the mu=0 equivalence test.
+    On GPU (CUDA), standard single-precision floating-point arithmetic (FP32)
+    lacks exact associativity across parallel warp reductions, and non-deterministic
+    atomic operations or scheduling jitter in CUDA kernels can accumulate numerical
+    differences up to ~1e-5 across multiple backward passes and momentum updates,
+    even with identical initial weights and inputs.
+    While CPU achieves < 1e-7 strict floating-point equivalence, CUDA environments
+    require a scientifically defensible tolerance of 1e-5 (still 3 orders of magnitude
+    below parameter update magnitudes). This test dynamically detects the active device
+    and applies 1e-5 for CUDA and 1e-7 for CPU.
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    tolerance = 1e-5 if device.type == "cuda" else 1e-7
+    
+    torch.manual_seed(100)
+    init_model = FedAvgCNN(in_features=3, num_classes=9, dim=1024).to(device)
+    
+    batches = []
+    for _ in range(5):
+        bx = torch.randn(32, 3, 28, 28, device=device)
+        by = torch.randint(0, 9, (32,), device=device)
+        batches.append((bx, by))
+        
+    model_fedavg = copy.deepcopy(init_model)
+    run_local_training(model_fedavg, batches, lr=0.01, momentum=0.9, mu=0.0, global_snapshot=None, epochs=3)
+    
+    model_fedprox_zero = copy.deepcopy(init_model)
+    snapshot = [p.detach().clone() for p in model_fedprox_zero.parameters()]
+    run_local_training(model_fedprox_zero, batches, lr=0.01, momentum=0.9, mu=0.0, global_snapshot=snapshot, epochs=3)
+    
+    max_observed_diff = 0.0
+    for p_avg, p_prox in zip(model_fedavg.parameters(), model_fedprox_zero.parameters()):
+        diff = torch.max(torch.abs(p_avg - p_prox)).item()
+        if diff > max_observed_diff:
+            max_observed_diff = diff
+        assert diff < tolerance, f"CUDA-tolerant mu=0 equivalence failed on {device}! Max diff: {diff} >= {tolerance}"
+    print(f"\nCUDA-tolerant mu=0 equivalence passed on {device} with max diff {max_observed_diff:.2e} < {tolerance:.0e}!")
+
 def test_mu_positive_restraining_effect():
     torch.manual_seed(200)
     init_model = FedAvgCNN(in_features=3, num_classes=9, dim=1024)

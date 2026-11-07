@@ -25,6 +25,13 @@ sys.path.insert(0, os.path.abspath("PFLlib/system"))
 from PFLlib.system.flcore.trainmodel.models import FedAvgCNN
 from metrics_evaluator import MetricsEvaluator, compute_update_metrics, flatten_trainable_params
 
+def compute_file_sha256(path):
+    hasher = hashlib.sha256()
+    with open(path, "rb") as f:
+        while chunk := f.read(131072):
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
 class FederatedClient:
     def __init__(self, client_id, train_x, train_y, test_x, test_y, batch_size=64, device="cpu"):
         self.client_id = client_id
@@ -47,7 +54,6 @@ class FederatedClient:
         self.criterion = nn.CrossEntropyLoss()
 
     def train_round(self, base_model, local_epochs=5, lr=0.01, momentum=0.9, mu=0.0):
-        # Create a deep copy of the global model for local training
         local_model = copy.deepcopy(base_model).to(self.device)
         local_model.train()
         
@@ -107,7 +113,9 @@ class FederatedClient:
 
 class FederatedExperiment:
     def __init__(self, run_name, algorithm, condition, seed, mu=0.0, global_rounds=100, local_epochs=5,
-                 batch_size=64, lr=0.01, momentum=0.9, num_threads=8, device=None, wandb_project=None, output_dir="results"):
+                 batch_size=64, lr=0.01, momentum=0.9, num_threads=8, device=None, checkpoint_interval=5,
+                 wandb_project="pathmnist-federated-learning", wandb_mode="online", wandb_api_key=None,
+                 output_dir="results"):
         self.run_name = run_name
         self.algorithm = algorithm.lower()
         self.condition = condition.lower()
@@ -118,6 +126,7 @@ class FederatedExperiment:
         self.batch_size = batch_size
         self.lr = lr
         self.momentum = momentum
+        self.checkpoint_interval = checkpoint_interval
         self.output_dir = os.path.join(output_dir, self.run_name)
         os.makedirs(self.output_dir, exist_ok=True)
         
@@ -137,6 +146,21 @@ class FederatedExperiment:
         ckpt_path = f"checkpoints/initial/initial_model_seed_{self.seed}.pt"
         if not os.path.exists(ckpt_path):
             raise FileNotFoundError(f"Initial model checkpoint missing: {ckpt_path}")
+        
+        # Verify initial checkpoint SHA256 against manifest
+        self.initial_model_sha256 = compute_file_sha256(ckpt_path)
+        manifest_path = "checkpoints/initial/manifest.json"
+        if os.path.exists(manifest_path):
+            with open(manifest_path, "r", encoding="utf-8") as mf:
+                manifest = json.load(mf)
+                if str(self.seed) in manifest:
+                    expected_hash = manifest[str(self.seed)]["sha256"]
+                    assert self.initial_model_sha256 == expected_hash, (
+                        f"Initial model hash mismatch for seed {self.seed}! "
+                        f"Expected {expected_hash}, got {self.initial_model_sha256}"
+                    )
+                    print(f"Verified initial model SHA256 for seed {self.seed}: {self.initial_model_sha256}")
+
         self.global_model = FedAvgCNN(in_features=3, num_classes=9, dim=1024).to(self.device)
         self.global_model.load_state_dict(torch.load(ckpt_path, map_location=self.device, weights_only=True))
         
@@ -162,17 +186,37 @@ class FederatedExperiment:
             
         tot_samples = sum(self.client_sample_counts)
         self.aggregation_weights = [n / tot_samples for n in self.client_sample_counts]
+
+        # Environment metadata
+        device_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() and self.device.type == "cuda" else "CPU"
+        self.env_metadata = {
+            "torch_version": torch.__version__,
+            "cuda_available": torch.cuda.is_available(),
+            "device": str(self.device),
+            "gpu_name": device_name,
+            "cpu_count": os.cpu_count()
+        }
         
         # Setup W&B (offline or online)
         self.use_wandb = False
-        if wandb_project and os.environ.get("ENABLE_WANDB", "0") == "1":
+        if wandb_project and wandb_mode != "disabled":
             try:
                 import wandb
-                mode = "online" if os.environ.get("WANDB_API_KEY") else "offline"
+                # Key resolution: argument -> environment variable
+                effective_key = wandb_api_key or os.environ.get("WANDB_API_KEY")
+                if effective_key:
+                    wandb.login(key=effective_key)
+                
+                # Determine mode
+                eff_mode = wandb_mode
+                if eff_mode == "online" and not effective_key and not os.path.exists(os.path.expanduser("~/.netrc")):
+                    print("W&B API key not detected. Falling back to 'offline' mode.")
+                    eff_mode = "offline"
+
                 wandb.init(
                     project=wandb_project,
                     name=self.run_name,
-                    mode=mode,
+                    mode=eff_mode,
                     config={
                         "run_name": self.run_name,
                         "algorithm": self.algorithm,
@@ -186,6 +230,10 @@ class FederatedExperiment:
                         "momentum": self.momentum,
                         "client_sample_counts": self.client_sample_counts,
                         "aggregation_weights": self.aggregation_weights,
+                        "client_0_train_size": self.client_sample_counts[0],
+                        "client_0_weight": self.aggregation_weights[0],
+                        "initial_model_sha256": self.initial_model_sha256,
+                        "env": self.env_metadata,
                         "architecture": "FedAvgCNN (3x28x28 -> 9)",
                         "num_clients": 5,
                         "join_ratio": 1.0
@@ -193,8 +241,9 @@ class FederatedExperiment:
                 )
                 self.use_wandb = True
                 self.wandb = wandb
+                print(f"W&B logging active in mode='{eff_mode}' (Project: {wandb_project}, Run: {self.run_name})")
             except Exception as e:
-                print(f"W&B initialization skipped ({e}). Continuing with local logging.")
+                print(f"W&B initialization skipped or failed ({e}). Comprehensive local JSON logging will be used.")
         else:
             print("W&B disabled. Using comprehensive local JSON logging.")
             
@@ -217,11 +266,14 @@ class FederatedExperiment:
         print(f"Algorithm: {self.algorithm.upper()} | Condition: {self.condition.upper()} | Seed: {self.seed} | Mu: {self.mu}", flush=True)
         print(f"Client train counts: {self.client_sample_counts}", flush=True)
         print(f"Aggregation weights: {[round(w, 4) for w in self.aggregation_weights]}", flush=True)
+        print(f"Initial model SHA256: {self.initial_model_sha256}", flush=True)
+        print(f"Compute Environment: {self.env_metadata}", flush=True)
         print(f"=======================================================", flush=True)
         
-        # --- Resume logic: check for existing partial history ---
+        # --- Resume logic: check for existing partial history & RNG state ---
         history_path = os.path.join(self.output_dir, "history.json")
         checkpoint_model_path = os.path.join(self.output_dir, "checkpoint_model.pt")
+        checkpoint_rng_path = os.path.join(self.output_dir, "checkpoint_rng.pt")
         resume_round = 0
         history = {
             "config": {
@@ -236,14 +288,16 @@ class FederatedExperiment:
                 "lr": self.lr,
                 "momentum": self.momentum,
                 "client_sample_counts": self.client_sample_counts,
-                "aggregation_weights": self.aggregation_weights
+                "aggregation_weights": self.aggregation_weights,
+                "initial_model_sha256": self.initial_model_sha256,
+                "env": self.env_metadata
             },
             "rounds": []
         }
         
         if os.path.exists(history_path) and os.path.exists(checkpoint_model_path):
             try:
-                existing = json.load(open(history_path))
+                existing = json.load(open(history_path, encoding="utf-8"))
                 completed_rounds = existing.get("rounds", [])
                 if completed_rounds:
                     resume_round = completed_rounds[-1]["round"]
@@ -252,6 +306,15 @@ class FederatedExperiment:
                         return existing
                     # Restore model state
                     self.global_model.load_state_dict(torch.load(checkpoint_model_path, map_location=self.device, weights_only=True))
+                    # Restore RNG state if available
+                    if os.path.exists(checkpoint_rng_path):
+                        rng_state = torch.load(checkpoint_rng_path, map_location="cpu", weights_only=False)
+                        torch.set_rng_state(rng_state["torch_rng"])
+                        if torch.cuda.is_available() and rng_state.get("cuda_rng") is not None:
+                            torch.cuda.set_rng_state_all(rng_state["cuda_rng"])
+                        if "numpy_rng" in rng_state:
+                            np.random.set_state(rng_state["numpy_rng"])
+                        print(f"Restored RNG state from checkpoint at round {resume_round}.", flush=True)
                     history["rounds"] = completed_rounds
                     print(f"RESUMING from round {resume_round}. {self.global_rounds - resume_round} rounds remaining.", flush=True)
             except Exception as e:
@@ -346,6 +409,7 @@ class FederatedExperiment:
                     log_dict[f"client_{cid}/holdout_acc"] = client_holdout_accs[cid]
                     log_dict[f"client_{cid}/holdout_loss"] = client_holdout_losses[cid]
                     log_dict[f"client_{cid}/update_norm"] = update_stats["norms"][cid]
+                    log_dict[f"client_{cid}/train_loss"] = client_train_losses[cid]
                     if not np.isnan(update_stats["standard_cosines"][cid]):
                         log_dict[f"client_{cid}/standard_cosine"] = update_stats["standard_cosines"][cid]
                     if not np.isnan(update_stats["leave_one_out_cosines"][cid]):
@@ -357,12 +421,18 @@ class FederatedExperiment:
                       f"Val Acc: {val_acc:.4f} | Test Acc: {test_acc:.4f} | "
                       f"C0 Norm: {update_stats['norms'][0]:.4f} | C0 StdCos: {update_stats['standard_cosines'][0]:.4f}")
                 
-            # Intermediate checkpoint every 5 rounds (for resume safety)
-            if r % 5 == 0:
-                with open(os.path.join(self.output_dir, "history.json"), "w") as f:
+            # Intermediate checkpoint every checkpoint_interval rounds
+            if r % self.checkpoint_interval == 0:
+                with open(os.path.join(self.output_dir, "history.json"), "w", encoding="utf-8") as f:
                     json.dump(history, f, indent=2)
-                # Save model checkpoint for resume
                 torch.save(self.global_model.state_dict(), os.path.join(self.output_dir, "checkpoint_model.pt"))
+                rng_state = {
+                    "torch_rng": torch.get_rng_state(),
+                    "cuda_rng": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
+                    "numpy_rng": np.random.get_state(),
+                    "round": r
+                }
+                torch.save(rng_state, os.path.join(self.output_dir, "checkpoint_rng.pt"))
                     
         total_time = time.time() - start_time_all
         print(f"\nCompleted {self.global_rounds} rounds in {total_time/60:.2f} minutes.")
@@ -371,9 +441,25 @@ class FederatedExperiment:
         cm = self.evaluator.compute_confusion_matrix(self.global_model)
         np.save(os.path.join(self.output_dir, "confusion_matrix.npy"), cm)
         
+        # W&B final confusion matrix logging
+        if self.use_wandb:
+            try:
+                preds, targets = self.evaluator.get_test_predictions_and_targets(self.global_model)
+                class_names = ["ADI", "BACK", "DEB", "LYM", "MUC", "MUS", "NORM", "STR", "TUM"]
+                self.wandb.log({
+                    "test/confusion_matrix": self.wandb.plot.confusion_matrix(
+                        probs=None,
+                        y_true=targets,
+                        preds=preds,
+                        class_names=class_names
+                    )
+                })
+            except Exception as e:
+                print(f"Notice: W&B confusion matrix visualization skipped ({e}).")
+
         # Save final model checkpoint and full history
         torch.save(self.global_model.state_dict(), os.path.join(self.output_dir, "final_model.pt"))
-        with open(os.path.join(self.output_dir, "history.json"), "w") as f:
+        with open(os.path.join(self.output_dir, "history.json"), "w", encoding="utf-8") as f:
             json.dump(history, f, indent=2)
             
         if self.use_wandb:
@@ -394,9 +480,13 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--lr", type=float, default=0.01)
     parser.add_argument("--momentum", type=float, default=0.9)
-    parser.add_argument("--threads", type=int, default=8)
+    parser.add_argument("--threads", type=int, default=4)
     parser.add_argument("--device", type=str, default=None, help="Compute device ('cuda' or 'cpu'). Defaults to cuda if available.")
+    parser.add_argument("--checkpoint_interval", type=int, default=5, help="Rounds between resume checkpoints")
+    parser.add_argument("--results_dir", type=str, default="results", help="Directory where results are stored")
     parser.add_argument("--wandb_project", type=str, default="pathmnist-federated-learning")
+    parser.add_argument("--wandb_mode", type=str, default="online", choices=["online", "offline", "disabled"])
+    parser.add_argument("--wandb_api_key", type=str, default=None)
     args = parser.parse_args()
     
     runner = FederatedExperiment(
@@ -412,6 +502,10 @@ if __name__ == "__main__":
         momentum=args.momentum,
         num_threads=args.threads,
         device=args.device,
-        wandb_project=args.wandb_project
+        checkpoint_interval=args.checkpoint_interval,
+        wandb_project=args.wandb_project,
+        wandb_mode=args.wandb_mode,
+        wandb_api_key=args.wandb_api_key,
+        output_dir=args.results_dir
     )
     runner.run()

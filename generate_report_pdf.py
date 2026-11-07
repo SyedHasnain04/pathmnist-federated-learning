@@ -1,7 +1,11 @@
 """
 generate_report_pdf.py - Generate a professional 1-page experiment PDF report.
 Objective, setup, results table, key plots, update-metric observations, conclusion, limitations.
+
+Usage:
+  python generate_report_pdf.py [--results_dir RESULTS_DIR]
 """
+import argparse
 import os
 import json
 from pathlib import Path
@@ -14,10 +18,17 @@ from reportlab.platypus import (
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
-RESULTS_DIR = Path("results")
-TABLES_DIR = Path("results/tables")
-PLOTS_DIR = Path("results/plots")
-PDF_PATH = BASE_DIR = Path(__file__).parent / "PathMNIST_FedAvg_vs_FedProx_Report.pdf"
+def _parse_args():
+    p = argparse.ArgumentParser(description="Generate PDF report.")
+    p.add_argument("--results_dir", default="results",
+                   help="Root results directory (default: results)")
+    return p.parse_args()
+
+_args = _parse_args()
+RESULTS_DIR = Path(_args.results_dir)
+TABLES_DIR = RESULTS_DIR / "tables"
+PLOTS_DIR = RESULTS_DIR / "plots"
+PDF_PATH = Path(__file__).parent / "PathMNIST_FedAvg_vs_FedProx_Report.pdf"
 
 def generate_pdf():
     doc = SimpleDocTemplate(
@@ -186,16 +197,100 @@ def generate_pdf():
     story.append(plot_table)
     story.append(Spacer(1, 4))
 
-    # Observations & Analysis
-    obs_text = (
-        "<b>Update-Metric Observations & Robustness:</b><br/>"
-        "• <i>Gradient Norms & Cosine Alignment:</i> Client 0 (40% noisy) exhibits altered update dynamics. In non-IID partitioning (α=0.3), "
-        "low cosine alignment naturally occurs due to class imbalance; however, Client 0's leave-one-out cosine shows systematic divergence from clean clients.<br/>"
-        "• <i>Aggregation Weight Sensitivity:</i> Client 0's influence is directly governed by its sample-count aggregation weight (p0). "
-        "Across seeds 42, 123, and 2026, p0 values are 0.117, 0.342, and 0.132 respectively. Noise impact is notably amplified under seed 123.<br/>"
-        "• <i>Proximal Term Behavior:</i> FedProx constrains drift from the global snapshot. When SGD momentum (0.9) is active, "
-        "the effective proximal penalty interacts with velocity accumulation, stabilising client parameter trajectories without degenerating local learning."
-    )
+    # Observations & Analysis — derived from actual results where available
+    obs_parts = ["<b>Update-Metric Observations &amp; Robustness:</b><br/>"]
+
+    # Try to load data to derive dynamic observations
+    _all_data = None
+    if summary_path.exists():
+        try:
+            _all_data = json.load(open(summary_path, encoding="utf-8"))
+        except Exception:
+            pass
+
+    if _all_data is not None:
+        gs = {g["group"]: g for g in _all_data.get("group_summary", [])}
+
+        def _acc(group_key, field):
+            g = gs.get(group_key)
+            if g is None:
+                return None
+            v = g.get(field, "N/A")
+            # format is "X.XXXX +/- Y.YYYY" or "N/A"
+            if v == "N/A":
+                return None
+            try:
+                return float(v.split()[0])
+            except Exception:
+                return None
+
+        fa_clean = _acc("FEDAVG clean", "test_mean_91_100")
+        fa_noisy = _acc("FEDAVG noisy", "test_mean_91_100")
+        fp_clean = _acc("FEDPROX clean", "test_mean_91_100")
+        fp_noisy = _acc("FEDPROX noisy", "test_mean_91_100")
+
+        def _fmt(v):
+            return f"{v:.4f}" if v is not None else "pending"
+
+        # Noisy vs clean degradation
+        if fa_clean is not None and fa_noisy is not None:
+            fa_drop = fa_clean - fa_noisy
+            obs_parts.append(
+                f"&bull; <i>Noise Impact (FedAvg):</i> FedAvg clean test acc (rounds 91-100 mean): {_fmt(fa_clean)}; "
+                f"noisy: {_fmt(fa_noisy)}. Noise degradation: {fa_drop:+.4f}.<br/>"
+            )
+        if fp_clean is not None and fp_noisy is not None:
+            fp_drop = fp_clean - fp_noisy
+            obs_parts.append(
+                f"&bull; <i>Noise Impact (FedProx):</i> FedProx clean: {_fmt(fp_clean)}; "
+                f"noisy: {_fmt(fp_noisy)}. Noise degradation: {fp_drop:+.4f}.<br/>"
+            )
+
+        # Algorithm comparison on noisy condition
+        if fa_noisy is not None and fp_noisy is not None:
+            better = "FedProx" if fp_noisy > fa_noisy else "FedAvg"
+            diff = abs(fp_noisy - fa_noisy)
+            obs_parts.append(
+                f"&bull; <i>Algorithm Comparison (Noisy):</i> {better} achieves higher mean test acc under noisy condition "
+                f"(difference: {diff:.4f}).<br/>"
+            )
+
+        # Aggregation weights from mu sweep / partition summary
+        summary_json = Path("data/partitions/summary.json")
+        if summary_json.exists():
+            try:
+                psummary = json.load(open(summary_json, encoding="utf-8"))
+                weights_str = []
+                for seed in [42, 123, 2026]:
+                    seed_key = str(seed)
+                    if seed_key in psummary:
+                        c0_w = psummary[seed_key].get("0", {}).get("weight", None)
+                        if c0_w is not None:
+                            weights_str.append(f"seed {seed}: {c0_w:.3f}")
+                if weights_str:
+                    obs_parts.append(
+                        f"&bull; <i>Client 0 Aggregation Weight (p0):</i> {', '.join(weights_str)}. "
+                        "Higher p0 amplifies noise impact on the global model.<br/>"
+                    )
+            except Exception:
+                pass
+
+        obs_parts.append(
+            "&bull; <i>Update-Metric Analysis:</i> Client 0 (40% noisy) exhibits altered gradient dynamics. "
+            "In non-IID partitioning (alpha=0.3), low cosine alignment occurs due to class imbalance. "
+            "FedProx proximal term constrains per-client parameter drift from the round-start global snapshot. "
+            "See plots 5-7 for per-client L2 norm and cosine similarity trajectories."
+        )
+    else:
+        obs_parts.append(
+            "&bull; <i>Observations pending:</i> Run the full experiment matrix and re-run generate_tables.py, "
+            "then re-run generate_report_pdf.py to populate data-driven observations.<br/>"
+            "&bull; <i>Update-Metric Analysis:</i> Client 0 (40% noisy) exhibits altered update dynamics "
+            "relative to clean clients. FedProx proximal term constrains drift from the global snapshot. "
+            "See plots 5-7 for per-client norms and cosine similarities."
+        )
+
+    obs_text = "".join(obs_parts)
     story.append(Paragraph(obs_text, body_style))
     story.append(Spacer(1, 4))
 

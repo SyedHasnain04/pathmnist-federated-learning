@@ -64,6 +64,19 @@ class MetricsEvaluator:
                     cm[t, p] += 1
         return cm
 
+    def get_test_predictions_and_targets(self, model):
+        model.eval()
+        all_preds = []
+        all_targets = []
+        with torch.no_grad():
+            for x, y in self.test_loader:
+                x = x.to(self.device)
+                outputs = model(x)
+                preds = outputs.argmax(dim=1).cpu().numpy()
+                all_preds.extend(preds.tolist())
+                all_targets.extend(y.numpy().tolist())
+        return all_preds, all_targets
+
 def flatten_trainable_params(model):
     # Flatten trainable parameters only, preserving deterministic order
     return torch.cat([p.detach().reshape(-1) for p in model.parameters() if p.requires_grad])

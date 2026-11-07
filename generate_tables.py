@@ -3,17 +3,28 @@ generate_tables.py - Generate result tables from saved experiment history.json f
 
 Tables produced:
 1. Round 100 metrics for all 12 runs (val acc, test acc, C0 holdout acc)
-2. Mean±std across 3 seeds for each of 4 groups
+2. Mean+/-std across 3 seeds for each of 4 groups
 3. Last-10-round (91-100) mean for each run
-4. μ sweep results table
+4. mu sweep results table
 5. Per-seed detailed results
+
+Usage:
+  python generate_tables.py [--results_dir RESULTS_DIR]
 """
+import argparse
 import json
 import numpy as np
 from pathlib import Path
 
-RESULTS_DIR = Path("results")
-TABLES_DIR = Path("results/tables")
+def parse_args():
+    p = argparse.ArgumentParser(description="Generate experiment result tables.")
+    p.add_argument("--results_dir", default="results",
+                   help="Root results directory (default: results)")
+    return p.parse_args()
+
+_args = parse_args()
+RESULTS_DIR = Path(_args.results_dir)
+TABLES_DIR = RESULTS_DIR / "tables"
 TABLES_DIR.mkdir(parents=True, exist_ok=True)
 
 SEEDS = [42, 123, 2026]

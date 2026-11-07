@@ -2,7 +2,16 @@ __pycache__/
 *.pyc
 .pytest_cache/
 wandb/
-results/*/checkpoint_model.pt
+results/
+results_pilot/
+colab_package.zip
 data/pathmnist.npz
 data/partitions/
+PFLlib/dataset/
+bench.py
+check_pilot.py
+test_env.py
+test_parallel.py
+inspect_nb.py
+update_notebook.py
 

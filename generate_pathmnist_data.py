@@ -254,5 +254,53 @@ def build_data_pipeline():
     print("\nData generation and verification COMPLETE!")
     print(f"Manifest written to {BASE_DATA_DIR}/manifest.json")
 
+    # Generate and print structured partition summary table
+    print("\n" + "="*85)
+    print("PARTITION SUMMARY, CLIENT SIZES, AGGREGATION WEIGHTS, AND SHA256 HASHES")
+    print("="*85)
+    summary_data = {
+        "raw_data_md5": all_manifest["raw_data_md5"],
+        "official_val_sha256": all_manifest["official_val_sha256"],
+        "official_test_sha256": all_manifest["official_test_sha256"],
+        "seeds": {}
+    }
+    summary_lines = []
+    header = f"{'Seed':<6} | {'Client':<8} | {'Train Size':<10} | {'Test Size':<9} | {'Weight (pk)':<11} | {'Noise':<12} | {'Clean Train SHA256 (prefix)':<25}"
+    print(header)
+    print("-" * 85)
+    summary_lines.append(header)
+    summary_lines.append("-" * 85)
+
+    for s in SEEDS:
+        s_data = all_manifest["seeds"][s]
+        summary_data["seeds"][str(s)] = {
+            "total_train_samples": s_data["total_train_samples"],
+            "client_0_weight": s_data["clients"]["0"]["aggregation_weight"],
+            "clients": {}
+        }
+        for cid in range(NUM_CLIENTS):
+            c_info = s_data["clients"][str(cid)]
+            noise_str = f"{s_data['client0_noise']['exact_noise_count']} (40%)" if cid == 0 else "0 (0.0%)"
+            sha_prefix = c_info["clean_train_sha256"][:24] + "..."
+            row = f"{s:<6} | Client {cid:<1} | {c_info['train_size']:<10} | {c_info['test_size']:<9} | {c_info['aggregation_weight']:<11.4f} | {noise_str:<12} | {sha_prefix:<25}"
+            print(row)
+            summary_lines.append(row)
+            summary_data["seeds"][str(s)]["clients"][str(cid)] = {
+                "train_size": c_info["train_size"],
+                "test_size": c_info["test_size"],
+                "aggregation_weight": c_info["aggregation_weight"],
+                "clean_train_sha256": c_info["clean_train_sha256"],
+                "noisy_train_sha256": c_info["noisy_train_sha256"],
+                "test_sha256": c_info["test_sha256"]
+            }
+        print("-" * 85)
+        summary_lines.append("-" * 85)
+
+    with open(f"{BASE_DATA_DIR}/summary.json", "w", encoding="utf-8") as sf:
+        json.dump(summary_data, sf, indent=2)
+    with open(f"{BASE_DATA_DIR}/summary.txt", "w", encoding="utf-8") as stf:
+        stf.write("\n".join(summary_lines))
+    print(f"Summary saved to {BASE_DATA_DIR}/summary.json and summary.txt\n")
+
 if __name__ == "__main__":
     build_data_pipeline()

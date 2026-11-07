@@ -2,16 +2,20 @@
 generate_plots.py - Generate all required experiment plots from saved history.json files.
 
 Required plots:
-1. Official test accuracy vs rounds (4 curves: FedAvg/FedProx × clean/noisy, mean±std across seeds)
+1. Official test accuracy vs rounds (4 curves: FedAvg/FedProx x clean/noisy, mean+/-std across seeds)
 2. Official test loss vs rounds
 3. Per-client holdout accuracy vs rounds (5 clients, example seed)
 4. Official validation accuracy vs rounds
 5. Per-client update norms vs rounds
 6. Per-client standard cosine similarity vs rounds
 7. Per-client leave-one-out cosine similarity vs rounds
-8. Client class-distribution heatmap (5×9) from partition metadata
+8. Client class-distribution heatmap (5x9) from partition metadata
 9. Client aggregation weights bar chart
+
+Usage:
+  python generate_plots.py [--results_dir RESULTS_DIR]
 """
+import argparse
 import os
 import json
 import numpy as np
@@ -21,8 +25,15 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from pathlib import Path
 
-RESULTS_DIR = Path("results")
-PLOTS_DIR = Path("results/plots")
+def _parse_args():
+    p = argparse.ArgumentParser(description="Generate experiment plots.")
+    p.add_argument("--results_dir", default="results",
+                   help="Root results directory (default: results)")
+    return p.parse_args()
+
+_args = _parse_args()
+RESULTS_DIR = Path(_args.results_dir)
+PLOTS_DIR = RESULTS_DIR / "plots"
 PLOTS_DIR.mkdir(parents=True, exist_ok=True)
 
 SEEDS = [42, 123, 2026]
