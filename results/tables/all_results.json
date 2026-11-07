@@ -1,0 +1,215 @@
+{
+  "per_run_results": [
+    {
+      "run_name": "fedavg_clean_seed42",
+      "algorithm": "fedavg",
+      "condition": "clean",
+      "seed": 42,
+      "n_rounds": 0,
+      "test_r100": null,
+      "val_r100": null,
+      "test_mean_91_100": null,
+      "val_mean_91_100": null,
+      "c0_holdout_r100": null
+    },
+    {
+      "run_name": "fedavg_clean_seed123",
+      "algorithm": "fedavg",
+      "condition": "clean",
+      "seed": 123,
+      "n_rounds": 0,
+      "test_r100": null,
+      "val_r100": null,
+      "test_mean_91_100": null,
+      "val_mean_91_100": null,
+      "c0_holdout_r100": null
+    },
+    {
+      "run_name": "fedavg_clean_seed2026",
+      "algorithm": "fedavg",
+      "condition": "clean",
+      "seed": 2026,
+      "n_rounds": 0,
+      "test_r100": null,
+      "val_r100": null,
+      "test_mean_91_100": null,
+      "val_mean_91_100": null,
+      "c0_holdout_r100": null
+    },
+    {
+      "run_name": "fedavg_noisy_seed42",
+      "algorithm": "fedavg",
+      "condition": "noisy",
+      "seed": 42,
+      "n_rounds": 0,
+      "test_r100": null,
+      "val_r100": null,
+      "test_mean_91_100": null,
+      "val_mean_91_100": null,
+      "c0_holdout_r100": null
+    },
+    {
+      "run_name": "fedavg_noisy_seed123",
+      "algorithm": "fedavg",
+      "condition": "noisy",
+      "seed": 123,
+      "n_rounds": 0,
+      "test_r100": null,
+      "val_r100": null,
+      "test_mean_91_100": null,
+      "val_mean_91_100": null,
+      "c0_holdout_r100": null
+    },
+    {
+      "run_name": "fedavg_noisy_seed2026",
+      "algorithm": "fedavg",
+      "condition": "noisy",
+      "seed": 2026,
+      "n_rounds": 0,
+      "test_r100": null,
+      "val_r100": null,
+      "test_mean_91_100": null,
+      "val_mean_91_100": null,
+      "c0_holdout_r100": null
+    },
+    {
+      "run_name": "fedprox_clean_seed42",
+      "algorithm": "fedprox",
+      "condition": "clean",
+      "seed": 42,
+      "n_rounds": 0,
+      "test_r100": null,
+      "val_r100": null,
+      "test_mean_91_100": null,
+      "val_mean_91_100": null,
+      "c0_holdout_r100": null
+    },
+    {
+      "run_name": "fedprox_clean_seed123",
+      "algorithm": "fedprox",
+      "condition": "clean",
+      "seed": 123,
+      "n_rounds": 0,
+      "test_r100": null,
+      "val_r100": null,
+      "test_mean_91_100": null,
+      "val_mean_91_100": null,
+      "c0_holdout_r100": null
+    },
+    {
+      "run_name": "fedprox_clean_seed2026",
+      "algorithm": "fedprox",
+      "condition": "clean",
+      "seed": 2026,
+      "n_rounds": 0,
+      "test_r100": null,
+      "val_r100": null,
+      "test_mean_91_100": null,
+      "val_mean_91_100": null,
+      "c0_holdout_r100": null
+    },
+    {
+      "run_name": "fedprox_noisy_seed42",
+      "algorithm": "fedprox",
+      "condition": "noisy",
+      "seed": 42,
+      "n_rounds": 0,
+      "test_r100": null,
+      "val_r100": null,
+      "test_mean_91_100": null,
+      "val_mean_91_100": null,
+      "c0_holdout_r100": null
+    },
+    {
+      "run_name": "fedprox_noisy_seed123",
+      "algorithm": "fedprox",
+      "condition": "noisy",
+      "seed": 123,
+      "n_rounds": 0,
+      "test_r100": null,
+      "val_r100": null,
+      "test_mean_91_100": null,
+      "val_mean_91_100": null,
+      "c0_holdout_r100": null
+    },
+    {
+      "run_name": "fedprox_noisy_seed2026",
+      "algorithm": "fedprox",
+      "condition": "noisy",
+      "seed": 2026,
+      "n_rounds": 0,
+      "test_r100": null,
+      "val_r100": null,
+      "test_mean_91_100": null,
+      "val_mean_91_100": null,
+      "c0_holdout_r100": null
+    }
+  ],
+  "group_summary": [
+    {
+      "group": "FEDAVG clean",
+      "n_seeds": 3,
+      "test_r100": "N/A",
+      "val_r100": "N/A",
+      "test_mean_91_100": "N/A",
+      "val_mean_91_100": "N/A",
+      "c0_holdout_r100": "N/A"
+    },
+    {
+      "group": "FEDAVG noisy",
+      "n_seeds": 3,
+      "test_r100": "N/A",
+      "val_r100": "N/A",
+      "test_mean_91_100": "N/A",
+      "val_mean_91_100": "N/A",
+      "c0_holdout_r100": "N/A"
+    },
+    {
+      "group": "FEDPROX clean",
+      "n_seeds": 3,
+      "test_r100": "N/A",
+      "val_r100": "N/A",
+      "test_mean_91_100": "N/A",
+      "val_mean_91_100": "N/A",
+      "c0_holdout_r100": "N/A"
+    },
+    {
+      "group": "FEDPROX noisy",
+      "n_seeds": 3,
+      "test_r100": "N/A",
+      "val_r100": "N/A",
+      "test_mean_91_100": "N/A",
+      "val_mean_91_100": "N/A",
+      "c0_holdout_r100": "N/A"
+    }
+  ],
+  "mu_sweep": {
+    "rows": [
+      {
+        "mu": 0.001,
+        "run_name": "fedprox_sweep_mu0001",
+        "n_rounds": 0,
+        "val_mean_91_100": "N/A",
+        "test_mean_91_100": "N/A",
+        "val_r100": "N/A"
+      },
+      {
+        "mu": 0.01,
+        "run_name": "fedprox_sweep_mu001",
+        "n_rounds": 0,
+        "val_mean_91_100": "N/A",
+        "test_mean_91_100": "N/A",
+        "val_r100": "N/A"
+      },
+      {
+        "mu": 0.1,
+        "run_name": "fedprox_sweep_mu01",
+        "n_rounds": 0,
+        "val_mean_91_100": "N/A",
+        "test_mean_91_100": "N/A",
+        "val_r100": "N/A"
+      }
+    ],
+    "selected_mu": "not_selected"
+  }
+}

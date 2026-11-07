@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+wandb/
+results/*/checkpoint_model.pt
+data/pathmnist.npz
+data/partitions/

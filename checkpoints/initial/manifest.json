@@ -1,0 +1,14 @@
+{
+  "42": {
+    "checkpoint_path": "checkpoints/initial\\initial_model_seed_42.pt",
+    "sha256": "757c58a014928f144100c52534d44448d743e13a10aed92346cda569af7b2c78"
+  },
+  "123": {
+    "checkpoint_path": "checkpoints/initial\\initial_model_seed_123.pt",
+    "sha256": "6d837cd252cdc96b45a45c0b956af69156d16ba56e52432528f92ddd773d5eb8"
+  },
+  "2026": {
+    "checkpoint_path": "checkpoints/initial\\initial_model_seed_2026.pt",
+    "sha256": "28fc0aa32098c9b9b618d3b6cd2f00ca70bc2bdb09e89edb5e694be83ade7e82"
+  }
+}
