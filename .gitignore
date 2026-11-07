@@ -5,6 +5,8 @@ wandb/
 results/
 results_pilot/
 colab_package.zip
+*.pdf
+PathMNIST_FedAvg_vs_FedProx_Report.pdf
 data/pathmnist.npz
 data/partitions/
 PFLlib/dataset/
