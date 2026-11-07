@@ -13,7 +13,6 @@ INCLUDE_FILES = [
     "federated_runner.py",
     "metrics_evaluator.py",
     "orchestrator.py",
-    "monitor_runs.py",
     "generate_pathmnist_data.py",
     "generate_initial_models.py",
     "generate_plots.py",
@@ -28,6 +27,7 @@ INCLUDE_FILES = [
 
 INCLUDE_DIRS = [
     "tests",
+    "checkpoints/initial",
     "PFLlib/system/flcore/trainmodel"
 ]
 
