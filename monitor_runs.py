@@ -79,19 +79,19 @@ def show_status():
             complete += 1
             val_str = f"val={r['last_val']:.4f}" if r['last_val'] is not None else ""
             test_str = f"test={r['last_test']:.4f}" if r['last_test'] is not None else ""
-            print(f"  ✓ {run_name:<35} {rounds:>3}/100 rounds  {val_str}  {test_str}")
+            print(f"  [DONE] {run_name:<35} {rounds:>3}/100 rounds  {val_str}  {test_str}")
         elif status == "running":
             running += 1
             if "last_log" in r:
-                print(f"  → {run_name:<35} {rounds:>3}/100 rounds  {r.get('last_log', '')[:60]}")
+                print(f"  [RUN ] {run_name:<35} {rounds:>3}/100 rounds  {r.get('last_log', '')[:60]}")
             else:
                 val_str = f"val={r['last_val']:.4f}" if r['last_val'] is not None else ""
-                print(f"  → {run_name:<35} {rounds:>3}/100 rounds  {val_str}")
+                print(f"  [RUN ] {run_name:<35} {rounds:>3}/100 rounds  {val_str}")
         elif status == "not_started":
             not_started += 1
-            print(f"  · {run_name:<35} not started")
+            print(f"  [ -- ] {run_name:<35} not started")
         else:
-            print(f"  ! {run_name:<35} {status}")
+            print(f"  [ !  ] {run_name:<35} {status}")
     
     print(f"\nSummary: {complete}/{total} complete, {running} running, {not_started} not started")
     
