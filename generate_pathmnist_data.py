@@ -89,6 +89,13 @@ def apply_label_noise_client0(clean_train_y, seed):
     return noisy_train_y, noise_metadata
 
 def build_data_pipeline():
+    if not os.path.exists(RAW_DATA_PATH):
+        print(f"{RAW_DATA_PATH} not found. Downloading via medmnist...")
+        os.makedirs("data", exist_ok=True)
+        from medmnist import PathMNIST
+        PathMNIST(split="train", download=True, root="data")
+        print("PathMNIST download complete.")
+
     print(f"Loading raw PathMNIST from {RAW_DATA_PATH}...")
     raw = np.load(RAW_DATA_PATH)
     train_images_raw = raw["train_images"]  # (89996, 28, 28, 3)

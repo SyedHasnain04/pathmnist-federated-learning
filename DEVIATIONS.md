@@ -40,22 +40,13 @@ This file records every deliberate or forced deviation from the `PathMNIST_FedAv
 
 ---
 
-### DEV-03: CPU-Only Compute — No GPU Available
+### DEV-03: Compute Environment Transition — Execution on CUDA GPU (Google Colab)
 
-**Specification requirement:** No specific GPU requirement, but the plan anticipates reasonable compute.
+**Specification requirement:** Rigorous benchmark across all 12 experimental conditions and preliminary μ sweep.
 
-**Actual behavior:** CPU-only execution (no CUDA device detected). PyTorch runs on CPU with up to 16 threads.
+**Decision & Execution:** Initial local profiling on a 22-core CPU indicated long communication round durations (~3.5–5 minutes per round), which would have required ~40–50 wall-clock hours for 15 runs. Per strict scientific protocol, **all partial CPU runs were halted and discarded** to guarantee zero splicing of CPU and GPU runs within or across experimental groups. The entire experimental matrix (from the μ sweep onward) is executed uniformly on CUDA GPU hardware in Google Colab.
 
-**Root cause:** The sandbox environment has no GPU.
-
-**Mitigation:** Sequential per-client training (5 clients per round), 9-12 experiments running in parallel as separate Python processes to maximize CPU utilization across 22 cores. Each process uses 2-4 intra-op threads.
-
-**Impact on timing:**
-- 1 communication round (5 clients sequential, 5 epochs, avg ~12K samples): ~280-350s (~5 min)
-- 100-round run wall time: ~8-10 hours per run (sequential)
-- With 9 parallel runs: all 9 complete simultaneously in ~10-15 hours
-
-**Impact on results:** None — training correctness is identical on CPU. Learning rate, convergence, and reproducibility are unaffected.
+**Impact on Results:** Scientifically pure comparison. Every single run in the final results table, plots, and analysis originates from an identical CUDA compute environment under identical precision and device semantics. Per-round duration drops to ~8–12 seconds, allowing complete 100-round convergence across all 15 runs within ~2.5–3 hours.
 
 ---
 

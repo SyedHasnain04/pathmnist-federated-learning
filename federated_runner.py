@@ -107,7 +107,7 @@ class FederatedClient:
 
 class FederatedExperiment:
     def __init__(self, run_name, algorithm, condition, seed, mu=0.0, global_rounds=100, local_epochs=5,
-                 batch_size=64, lr=0.01, momentum=0.9, num_threads=8, wandb_project=None, output_dir="results"):
+                 batch_size=64, lr=0.01, momentum=0.9, num_threads=8, device=None, wandb_project=None, output_dir="results"):
         self.run_name = run_name
         self.algorithm = algorithm.lower()
         self.condition = condition.lower()
@@ -121,18 +121,27 @@ class FederatedExperiment:
         self.output_dir = os.path.join(output_dir, self.run_name)
         os.makedirs(self.output_dir, exist_ok=True)
         
-        # Threading for CPU
-        torch.set_num_threads(num_threads)
+        # Device selection: use CUDA if available, unless specified
+        if device is None:
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            self.device = torch.device(device)
+            
+        print(f"[{self.run_name}] Running on compute device: {self.device}", flush=True)
+        
+        # Threading for CPU operations
+        if self.device.type == "cpu":
+            torch.set_num_threads(num_threads)
         
         # Load initial model checkpoint
         ckpt_path = f"checkpoints/initial/initial_model_seed_{self.seed}.pt"
         if not os.path.exists(ckpt_path):
             raise FileNotFoundError(f"Initial model checkpoint missing: {ckpt_path}")
-        self.global_model = FedAvgCNN(in_features=3, num_classes=9, dim=1024)
-        self.global_model.load_state_dict(torch.load(ckpt_path, weights_only=True))
+        self.global_model = FedAvgCNN(in_features=3, num_classes=9, dim=1024).to(self.device)
+        self.global_model.load_state_dict(torch.load(ckpt_path, map_location=self.device, weights_only=True))
         
         # Evaluator for official val and test
-        self.evaluator = MetricsEvaluator()
+        self.evaluator = MetricsEvaluator(device=self.device)
         
         # Load client datasets
         partition_dir = f"data/partitions/seed_{self.seed}/{self.condition}"
@@ -147,7 +156,7 @@ class FederatedExperiment:
             te_x = torch.from_numpy(test_raw["x"]).float()
             te_y = torch.from_numpy(test_raw["y"]).long()
             
-            client = FederatedClient(cid, tx, ty, te_x, te_y, batch_size=self.batch_size)
+            client = FederatedClient(cid, tx, ty, te_x, te_y, batch_size=self.batch_size, device=self.device)
             self.clients.append(client)
             self.client_sample_counts.append(client.train_samples)
             
@@ -242,7 +251,7 @@ class FederatedExperiment:
                         print(f"Run already complete ({resume_round} rounds). Skipping.", flush=True)
                         return existing
                     # Restore model state
-                    self.global_model.load_state_dict(torch.load(checkpoint_model_path, weights_only=True))
+                    self.global_model.load_state_dict(torch.load(checkpoint_model_path, map_location=self.device, weights_only=True))
                     history["rounds"] = completed_rounds
                     print(f"RESUMING from round {resume_round}. {self.global_rounds - resume_round} rounds remaining.", flush=True)
             except Exception as e:
@@ -386,6 +395,7 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=0.01)
     parser.add_argument("--momentum", type=float, default=0.9)
     parser.add_argument("--threads", type=int, default=8)
+    parser.add_argument("--device", type=str, default=None, help="Compute device ('cuda' or 'cpu'). Defaults to cuda if available.")
     parser.add_argument("--wandb_project", type=str, default="pathmnist-federated-learning")
     args = parser.parse_args()
     
@@ -401,6 +411,7 @@ if __name__ == "__main__":
         lr=args.lr,
         momentum=args.momentum,
         num_threads=args.threads,
+        device=args.device,
         wandb_project=args.wandb_project
     )
     runner.run()
