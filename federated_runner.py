@@ -115,7 +115,7 @@ class FederatedExperiment:
     def __init__(self, run_name, algorithm, condition, seed, mu=0.0, global_rounds=100, local_epochs=5,
                  batch_size=64, lr=0.01, momentum=0.9, num_threads=8, device=None, checkpoint_interval=5,
                  wandb_project="pathmnist-federated-learning", wandb_mode="online", wandb_api_key=None,
-                 output_dir="results"):
+                 output_dir="results", is_pilot=False):
         self.run_name = run_name
         self.algorithm = algorithm.lower()
         self.condition = condition.lower()
@@ -127,6 +127,7 @@ class FederatedExperiment:
         self.lr = lr
         self.momentum = momentum
         self.checkpoint_interval = checkpoint_interval
+        self.is_pilot = is_pilot
         self.output_dir = os.path.join(output_dir, self.run_name)
         os.makedirs(self.output_dir, exist_ok=True)
         
@@ -150,7 +151,14 @@ class FederatedExperiment:
         # Verify initial checkpoint SHA256 against manifest
         self.initial_model_sha256 = compute_file_sha256(ckpt_path)
         manifest_path = "checkpoints/initial/manifest.json"
-        if os.path.exists(manifest_path):
+        if not os.path.exists(manifest_path):
+            if not self.is_pilot:
+                raise FileNotFoundError(
+                    f"CRITICAL: {manifest_path} is required for non-pilot runs to guarantee initial model hash verification!"
+                )
+            else:
+                print(f"Notice: {manifest_path} not found. Skipping hash verification in pilot mode.")
+        else:
             with open(manifest_path, "r", encoding="utf-8") as mf:
                 manifest = json.load(mf)
                 if str(self.seed) in manifest:
@@ -160,6 +168,8 @@ class FederatedExperiment:
                         f"Expected {expected_hash}, got {self.initial_model_sha256}"
                     )
                     print(f"Verified initial model SHA256 for seed {self.seed}: {self.initial_model_sha256}")
+                elif not self.is_pilot:
+                    raise KeyError(f"Seed {self.seed} not found in {manifest_path}!")
 
         self.global_model = FedAvgCNN(in_features=3, num_classes=9, dim=1024).to(self.device)
         self.global_model.load_state_dict(torch.load(ckpt_path, map_location=self.device, weights_only=True))
@@ -207,7 +217,19 @@ class FederatedExperiment:
                 if effective_key:
                     wandb.login(key=effective_key)
                 
-                # Determine mode
+                # In full-run mode, missing key must print loud warning or fail
+                if not self.is_pilot and wandb_mode == "online" and not effective_key and not os.path.exists(os.path.expanduser("~/.netrc")):
+                    msg = (
+                        "\n" + "="*75 + "\n"
+                        "[CRITICAL W&B ERROR] Online W&B logging requested, but NO API key was detected!\n"
+                        "To prevent unintended offline logging during the full experimental run:\n"
+                        "  1. Set WANDB_API_KEY via Colab Secrets (userdata.get('WANDB_API_KEY')) or env var.\n"
+                        "  2. Or explicitly pass --wandb_mode offline if offline logging is intended.\n"
+                        + "="*75 + "\n"
+                    )
+                    print(msg, flush=True)
+                    raise ValueError("W&B API key missing for online logging in full run! Set WANDB_API_KEY or pass --wandb_mode offline.")
+
                 eff_mode = wandb_mode
                 if eff_mode == "online" and not effective_key and not os.path.exists(os.path.expanduser("~/.netrc")):
                     print("W&B API key not detected. Falling back to 'offline' mode.")
@@ -416,10 +438,10 @@ class FederatedExperiment:
                         log_dict[f"client_{cid}/loo_cosine"] = update_stats["leave_one_out_cosines"][cid]
                 self.wandb.log(log_dict)
                 
-            if r % 10 == 0 or r == self.global_rounds or r == 1:
-                print(f"Round {r:3d}/{self.global_rounds} | Time: {r_duration:.1f}s | "
+            if getattr(self, "is_pilot", False) or self.global_rounds <= 10 or r % 10 == 0 or r == self.global_rounds or r == 1:
+                print(f"Round {r:3d}/{self.global_rounds} | Time: {r_duration:.2f}s | "
                       f"Val Acc: {val_acc:.4f} | Test Acc: {test_acc:.4f} | "
-                      f"C0 Norm: {update_stats['norms'][0]:.4f} | C0 StdCos: {update_stats['standard_cosines'][0]:.4f}")
+                      f"C0 Norm: {update_stats['norms'][0]:.4f} | C0 StdCos: {update_stats['standard_cosines'][0]:.4f}", flush=True)
                 
             # Intermediate checkpoint every checkpoint_interval rounds
             if r % self.checkpoint_interval == 0:
@@ -487,6 +509,7 @@ if __name__ == "__main__":
     parser.add_argument("--wandb_project", type=str, default="pathmnist-federated-learning")
     parser.add_argument("--wandb_mode", type=str, default="online", choices=["online", "offline", "disabled"])
     parser.add_argument("--wandb_api_key", type=str, default=None)
+    parser.add_argument("--is_pilot", action="store_true", help="Flag indicating pilot mode")
     args = parser.parse_args()
     
     runner = FederatedExperiment(
@@ -506,6 +529,7 @@ if __name__ == "__main__":
         wandb_project=args.wandb_project,
         wandb_mode=args.wandb_mode,
         wandb_api_key=args.wandb_api_key,
-        output_dir=args.results_dir
+        output_dir=args.results_dir,
+        is_pilot=args.is_pilot
     )
     runner.run()

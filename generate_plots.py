@@ -83,11 +83,14 @@ def load_all_seeds(algorithm, condition, key):
     return np.array(all_data)
 
 def plot_mean_std(ax, data, label, color, rounds=None):
-    """Plot mean ± std across seeds."""
+    """Plot mean ± std across seeds, with per-seed individual curves."""
     if data is None or len(data) == 0:
         return
     if rounds is None:
         rounds = np.arange(1, data.shape[1] + 1)
+    # Plot individual per-seed curves faintly
+    for i in range(len(data)):
+        ax.plot(rounds, data[i], color=color, alpha=0.35, linestyle=":", linewidth=1.0)
     mean = np.nanmean(data, axis=0)
     std = np.nanstd(data, axis=0)
     ax.plot(rounds, mean, color=color, label=label, linewidth=1.8)

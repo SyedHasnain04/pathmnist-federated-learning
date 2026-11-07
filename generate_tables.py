@@ -115,13 +115,23 @@ def build_run_table():
     return rows
 
 def build_group_summary(rows):
-    """Table 2: Mean±std across seeds for each group."""
+    """Table 2: Per-seed values alongside Mean±std across seeds for each group."""
     summary = []
     for algo, cond in GROUPS:
-        group_rows = [r for r in rows if r["algorithm"] == algo and r["condition"] == cond]
+        group_rows = {r["seed"]: r for r in rows if r["algorithm"] == algo and r["condition"] == cond}
+        
+        def get_seed_val(seed, key):
+            r = group_rows.get(seed)
+            if r is None or r.get(key) is None:
+                return None
+            return r[key]
+
+        s42_test_late = get_seed_val(42, "test_mean_91_100")
+        s123_test_late = get_seed_val(123, "test_mean_91_100")
+        s2026_test_late = get_seed_val(2026, "test_mean_91_100")
         
         def agg(key):
-            vals = [r[key] for r in group_rows if r[key] is not None]
+            vals = [r[key] for r in group_rows.values() if r.get(key) is not None]
             if not vals:
                 return "N/A", "N/A"
             return np.mean(vals), np.std(vals)
@@ -133,13 +143,20 @@ def build_group_summary(rows):
         c0_mean, c0_std = agg("c0_holdout_r100")
         
         def fmts(m, s):
-            if isinstance(m, str):
+            if isinstance(m, str) or m is None:
                 return "N/A"
             return f"{m:.4f} ± {s:.4f}"
+            
+        def fmt_single(v):
+            return f"{v:.4f}" if v is not None else "N/A"
         
         summary.append({
             "group": f"{algo.upper()} {cond}",
             "n_seeds": len(group_rows),
+            "seed_42_test_mean_91_100": fmt_single(s42_test_late),
+            "seed_123_test_mean_91_100": fmt_single(s123_test_late),
+            "seed_2026_test_mean_91_100": fmt_single(s2026_test_late),
+            "test_mean_91_100_summary": fmts(test_late_mean, test_late_std),
             "test_r100": fmts(test_mean, test_std),
             "val_r100": fmts(val_mean, val_std),
             "test_mean_91_100": fmts(test_late_mean, test_late_std),
@@ -204,12 +221,13 @@ def save_tables(rows, summary, mu_rows, best_mu):
                   f"{r['n_rounds']}/100 | {format_val(r['test_r100'])} | {format_val(r['val_r100'])} | "
                   f"{format_val(r['test_mean_91_100'])} | {format_val(r['val_mean_91_100'])} | {format_val(r['c0_holdout_r100'])} |")
     
-    md.append("\n## Table 2: Group Summary (Mean ± Std across 3 seeds)\n")
-    md.append("| Group | N Seeds | Test@100 | Val@100 | Test Mean 91-100 | Val Mean 91-100 | C0 Holdout@100 |")
-    md.append("|-------|---------|----------|---------|-----------------|-----------------|----------------|")
+    md.append("\n## Table 2: Group Summary (Per-Seed Values and Mean ± Std across 3 seeds)\n")
+    md.append("*Note: Client 0 aggregation weight (p0) differs by seed: 0.1172 (seed 42), 0.3423 (seed 123), 0.1315 (seed 2026).*\n")
+    md.append("| Group | Seed 42 (p0=0.117) | Seed 123 (p0=0.342) | Seed 2026 (p0=0.132) | Test Mean 91-100 (Mean ± Std) | Val Mean 91-100 | C0 Holdout@100 |")
+    md.append("|-------|--------------------|---------------------|----------------------|--------------------------------|-----------------|----------------|")
     for s in summary:
-        md.append(f"| {s['group']} | {s['n_seeds']} | {s['test_r100']} | {s['val_r100']} | "
-                  f"{s['test_mean_91_100']} | {s['val_mean_91_100']} | {s['c0_holdout_r100']} |")
+        md.append(f"| {s['group']} | {s['seed_42_test_mean_91_100']} | {s['seed_123_test_mean_91_100']} | "
+                  f"{s['seed_2026_test_mean_91_100']} | {s['test_mean_91_100']} | {s['val_mean_91_100']} | {s['c0_holdout_r100']} |")
     
     md.append(f"\n## Table 3: mu Sweep Results (FedProx, noisy, seed=42)\n")
     md.append(f"**Selected mu = {best_mu}** (criterion: highest mean official val accuracy rounds 91-100; ties broken by smallest mu)\n")

@@ -36,6 +36,7 @@ class MiniExperiment(FederatedExperiment):
         self.lr = 0.01
         self.momentum = 0.9
         self.checkpoint_interval = checkpoint_interval
+        self.is_pilot = False
         self.output_dir = os.path.join(out_dir, run_name)
         os.makedirs(self.output_dir, exist_ok=True)
         self.device = torch.device("cpu")
@@ -146,3 +147,4 @@ def test_resume_equivalence_and_state_restoration():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])
+

@@ -36,7 +36,7 @@ def run_is_complete(run_name, results_dir, required_rounds):
         return False
 
 def execute_single_run(config, results_dir, rounds, device="cuda", threads=4,
-                       wandb_project="pathmnist-federated-learning", wandb_mode="online", wandb_api_key=None):
+                       wandb_project="pathmnist-federated-learning", wandb_mode="online", wandb_api_key=None, is_pilot=False):
     """Execute a single run, streaming output live to both console and logfile."""
     run_name = config["run_name"]
     if run_is_complete(run_name, results_dir, rounds):
@@ -57,6 +57,8 @@ def execute_single_run(config, results_dir, rounds, device="cuda", threads=4,
         "--wandb_project", str(wandb_project),
         "--wandb_mode", str(wandb_mode),
     ]
+    if is_pilot:
+        cmd.append("--is_pilot")
     if wandb_api_key:
         cmd.extend(["--wandb_api_key", str(wandb_api_key)])
 
@@ -201,7 +203,7 @@ def run_pilot(results_dir, device="cuda", threads=4, wandb_project="pathmnist-fe
     for cfg in pilot_matrix:
         success = execute_single_run(
             cfg, results_dir=results_dir, rounds=5, device=device, threads=threads,
-            wandb_project=wandb_project, wandb_mode=wandb_mode, wandb_api_key=wandb_api_key
+            wandb_project=wandb_project, wandb_mode=wandb_mode, wandb_api_key=wandb_api_key, is_pilot=True
         )
         if not success:
             raise RuntimeError(f"Pilot run {cfg['run_name']} failed!")

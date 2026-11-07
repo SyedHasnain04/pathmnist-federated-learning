@@ -51,6 +51,13 @@ In addition, a pre-experimental **μ sweep** on noisy seed 42 evaluates candidat
 | **123** | 23,101 (9,240 noisy = 40.0%) | 15,060 | 2,297 | 14,355 | 12,683 | **0.3423** |
 | **2026** | 8,874 (3,550 noisy = 40.0%) | 6,415 | 20,474 | 14,643 | 17,090 | **0.1315** |
 
+> **Important Note on Client 0 Aggregation Weight Variation Across Seeds:**
+> Due to Dirichlet non-IID partitioning (\(\alpha=0.3\)), Client 0's aggregation weight (\(p_0\)) differs substantially across seeds:
+> - **Seed 42:** \(p_0 = 0.1172\) (7,910 samples, 3,164 noisy)
+> - **Seed 123:** \(p_0 = 0.3423\) (23,101 samples, 9,240 noisy)
+> - **Seed 2026:** \(p_0 = 0.1315\) (8,874 samples, 3,550 noisy)
+> Because Client 0's local training labels contain 40% symmetric noise, Seed 123 exposes the global model to nearly 3× the noise mass compared to Seeds 42 and 2026. Consequently, experimental results must be interpreted both per-seed and as mean ± std across seeds; reporting only aggregate means masks this structural sensitivity. Per-seed values are presented alongside mean ± std in Table 2 (`results/tables/results.md`) and plotted as individual seed curves in `results/plots/plot1_test_accuracy_vs_rounds.png`.
+
 ---
 
 ## 4. Model Architecture & Initialization Checkpoints
@@ -140,4 +147,35 @@ python generate_tables.py
 python generate_plots.py
 python generate_report_pdf.py
 ```
+
+---
+
+## 11. PFLlib Modifications, Licensing & Attribution
+
+### Attribution & Upstream License
+This project utilizes the `FedAvgCNN` backbone model architecture from **PFLlib** (Personalized Federated Learning Library) developed by Jianxu Ji et al.
+PFLlib is licensed under the **Apache License, Version 2.0**. In accordance with Section 4 of the Apache License 2.0, the complete, unmodified original license file is preserved at [`PFLlib/LICENSE`](file:///c:/Users/Syedh/Downloads/Research/llmXfedrated/PFLlib/LICENSE).
+
+### Comprehensive Audit of PFLlib Modifications
+To adhere strictly to the authoritative experimental specification and prevent experimental invalidity, the following modifications and architectural decouplings were implemented:
+
+1. **Decoupled Data Pipeline (Eliminated Train/Test Leakage):**
+   - *Upstream PFLlib behavior:* Dataset generators in PFLlib (e.g., `generate_MNIST.py`) merge official training and testing splits into a single unified array prior to Dirichlet partitioning.
+   - *Modification:* PFLlib's data generation logic is completely bypassed. Our data generator (`generate_pathmnist_data.py`) partitions solely from the 89,996 official PathMNIST training images. Official in-distribution validation (10,004) and official cross-site test (7,180) splits remain completely detached and untouched.
+
+2. **Momentum-Preserving Optimizer State Lifecycle:**
+   - *Upstream PFLlib behavior:* PFLlib's `PerturbedGradientDescent` optimizer implementation omits momentum entirely.
+   - *Modification:* Replaced with standard PyTorch `torch.optim.SGD(lr=0.01, momentum=0.9)`. A fresh optimizer instance is created for each client at the beginning of each round, ensuring momentum buffers from round $t$ never bleed into round $t+1$.
+
+3. **Detached Snapshot Anchoring for FedProx:**
+   - *Upstream PFLlib behavior:* FedProx implementations in PFLlib can exhibit parameter reference sharing issues across local steps.
+   - *Modification:* In `federated_runner.py`, a detached, cloned copy of global parameters $w_{\mathrm{global}}^t$ is captured at round start. The proximal objective $\frac{\mu}{2} \sum \|w - w_{\mathrm{global}}^t\|_2^2$ is penalized directly in the backward pass.
+
+4. **Pre-Aggregation Diagnostic Metrics:**
+   - *Upstream PFLlib behavior:* PFLlib records basic training and test accuracy without gradient alignment diagnostics.
+   - *Modification:* Captured local parameter vectors prior to aggregation to compute per-client update L2 norms, standard cosine similarities, and leave-one-out cosine similarities against peer client updates.
+
+5. **Deterministic Checkpoint Harmonization:**
+   - *Upstream PFLlib behavior:* Initializes models randomly upon client construction.
+   - *Modification:* Implemented deterministic initial checkpoint generation per seed with SHA-256 manifest verification, guaranteeing all 4 experimental groups within a seed begin from identical parameters.
 
