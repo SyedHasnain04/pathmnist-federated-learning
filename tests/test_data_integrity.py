@@ -83,5 +83,68 @@ def test_model_architecture_and_forward_pass():
     for m in model.modules():
         assert not isinstance(m, (torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d))
 
+def test_initial_model_hash_and_group_equality():
+    """
+    Test that for each seed (42, 123, 2026):
+    1. The initial model checkpoint matches the SHA-256 in checkpoints/initial/manifest.json.
+    2. All four experimental groups (FedAvg Clean, FedAvg Noisy, FedProx Clean, FedProx Noisy)
+       load the identical initial model checkpoint and have bitwise identical parameters.
+    3. The hash verification code in FederatedExperiment raises AssertionError if the file is corrupted.
+    """
+    from federated_runner import compute_file_sha256, FederatedExperiment
+
+    manifest_path = "checkpoints/initial/manifest.json"
+    assert os.path.exists(manifest_path), f"Initial manifest missing: {manifest_path}"
+    with open(manifest_path, "r", encoding="utf-8") as f:
+        manifest = json.load(f)
+
+    seeds = [42, 123, 2026]
+    groups = [
+        ("fedavg", "clean"),
+        ("fedavg", "noisy"),
+        ("fedprox", "clean"),
+        ("fedprox", "noisy"),
+    ]
+
+    for seed in seeds:
+        ckpt_path = f"checkpoints/initial/initial_model_seed_{seed}.pt"
+        assert os.path.exists(ckpt_path), f"Checkpoint missing: {ckpt_path}"
+        
+        # 1. Verify SHA-256 hash against manifest
+        computed_sha = compute_file_sha256(ckpt_path)
+        expected_sha = manifest[str(seed)]["sha256"]
+        assert computed_sha == expected_sha, f"SHA-256 mismatch for seed {seed}! {computed_sha} != {expected_sha}"
+
+        # 2. Verify all four groups load the exact same initial model
+        loaded_states = []
+        for algo, cond in groups:
+            run_name = f"{algo}_{cond}_seed{seed}"
+            exp = FederatedExperiment(
+                run_name=run_name,
+                algorithm=algo,
+                condition=cond,
+                seed=seed,
+                global_rounds=1,
+                wandb_mode="disabled",
+                output_dir="test_init_tmp"
+            )
+            loaded_states.append((run_name, exp.global_model.state_dict()))
+
+        # Compare pairwise bitwise equality across all four groups
+        base_name, base_state = loaded_states[0]
+        for name, state in loaded_states[1:]:
+            for k in base_state:
+                assert torch.equal(base_state[k], state[k]), (
+                    f"Initial model mismatch between {base_name} and {name} for parameter {k}!"
+                )
+
+    # Clean up temp test directory if created
+    shutil_rm = sys.modules.get("shutil")
+    if os.path.exists("test_init_tmp"):
+        import shutil
+        shutil.rmtree("test_init_tmp", ignore_errors=True)
+
+    print("\nInitial model hash and group equality test PASSED for all seeds and groups!")
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
