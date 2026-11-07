@@ -7,6 +7,9 @@ results_pilot/
 colab_package.zip
 *.pdf
 PathMNIST_FedAvg_vs_FedProx_Report.pdf
+!submission/
+!submission/**
+!submission/*.pdf
 data/pathmnist.npz
 data/partitions/
 PFLlib/dataset/

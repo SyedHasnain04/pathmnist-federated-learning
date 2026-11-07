@@ -179,3 +179,59 @@ To adhere strictly to the authoritative experimental specification and prevent e
    - *Upstream PFLlib behavior:* Initializes models randomly upon client construction.
    - *Modification:* Implemented deterministic initial checkpoint generation per seed with SHA-256 manifest verification, guaranteeing all 4 experimental groups within a seed begin from identical parameters.
 
+
+---
+
+## 12. Results
+
+<!-- RESULTS_SECTION_START -->
+> **Note:** This section is populated automatically by `collect_results.py` after the full experiment matrix completes on Colab.
+> Run `python collect_results.py --results_dir <path>` locally (after downloading results from Drive) to generate the tables below.
+
+<!-- TODO: my analysis
+Write your interpretive analysis here after reviewing the generated tables.
+Example prompts:
+  - Which algorithm converged faster and why?
+  - Did FedProx's proximal term help under non-IID label noise?
+  - How sensitive were results to the random seed?
+  - What does Client 0 accuracy reveal about label noise impact?
+-->
+<!-- RESULTS_SECTION_END -->
+
+---
+
+## 13. Reproducing on Google Colab
+
+### Hardware
+GPU type is recorded automatically in each run's `history.json` under `env.gpu_name` and `env.torch_version`.
+After running `collect_results.py`, check `submission/metrics/*_history.json` to see the hardware used.
+Expected Colab hardware: **NVIDIA T4 or A100 GPU**.
+
+> ⚠️ **CUDA vs CPU Numerical Note:** Results produced on a CUDA GPU are **not bit-identical** to CPU results.
+> FP32 parallel-reduction on CUDA is non-associative. The μ=0 FedProx ≡ FedAvg equivalence test uses a
+> CUDA-tolerant tolerance of `1e-5` instead of the CPU tolerance of `1e-7`.
+> All reported results were obtained on GPU hardware.
+
+### Seeds
+Experiments use three independent random seeds: **42, 123, 2026**.
+Dirichlet partitioning (α=0.3) is seeded deterministically per seed, so partition hashes and client sizes
+are reproducible across machines running the same code and data version.
+
+### Steps
+1. Open [`PathMNIST_FedAvg_vs_FedProx_Colab.ipynb`](https://github.com/syedHasnain04/pathmnist-federated-learning/blob/master/PathMNIST_FedAvg_vs_FedProx_Colab.ipynb) in Google Colab.
+2. Set runtime to GPU: **Runtime → Change runtime type → T4 GPU**.
+3. Add `WANDB_API_KEY` to Colab Secrets (key icon in left sidebar). Get your key from <https://wandb.ai/authorize>.
+4. Upload `colab_package.zip` (≈ 6 MB) to the Colab file browser or place it in your Google Drive.
+5. Run all cells sequentially (Steps 1–13).
+6. After all runs complete, download the results directory from Drive and run locally:
+   ```bash
+   python collect_results.py --results_dir /path/to/downloaded/results
+   ```
+   This populates `submission/` with plots, metrics, and updates the README Results section.
+
+### W&B Project
+Live training metrics will appear at the W&B project URL set in `WANDB_PROJECT_URL` (env var) or passed to
+`generate_report_pdf.py --wandb_url`. If you have not run the experiments yet, this URL is not yet available.
+
+### GitHub Repository
+<https://github.com/syedHasnain04/pathmnist-federated-learning>

@@ -22,6 +22,12 @@ def _parse_args():
     p = argparse.ArgumentParser(description="Generate PDF report.")
     p.add_argument("--results_dir", default="results",
                    help="Root results directory (default: results)")
+    p.add_argument("--wandb_url", default=os.environ.get("WANDB_PROJECT_URL", ""),
+                   help="W&B project URL (env: WANDB_PROJECT_URL)")
+    p.add_argument("--github_url",
+                   default=os.environ.get("GITHUB_URL",
+                       "https://github.com/syedHasnain04/pathmnist-federated-learning"),
+                   help="GitHub repository URL (env: GITHUB_URL)")
     return p.parse_args()
 
 _args = _parse_args()
@@ -104,6 +110,15 @@ def generate_pdf():
     # Title & Header
     story.append(Paragraph("PathMNIST Federated Learning: FedAvg vs FedProx Under Non-IID Label Noise", title_style))
     story.append(Paragraph("Authoritative Benchmark & Evaluation Report | Seeds: 42, 123, 2026 | Dirichlet α=0.3 | 40% Symmetric Noise on Client 0", sub_style))
+    # Optional URL links (passed via --wandb_url / --github_url or env vars WANDB_PROJECT_URL / GITHUB_URL)
+    _github = _args.github_url.strip()
+    _wandb  = _args.wandb_url.strip()
+    if _github:
+        story.append(Paragraph(
+            f'GitHub: <a href="{_github}" color="blue">{_github}</a>', sub_style))
+    if _wandb:
+        story.append(Paragraph(
+            f'W&B Dashboard: <a href="{_wandb}" color="blue">{_wandb}</a>', sub_style))
     story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#cbd5e0'), spaceBefore=4, spaceAfter=4))
 
     # Setup summary
