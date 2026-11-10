@@ -43,7 +43,8 @@ def test_client_partitions_and_noise_integrity():
             assert cdata["test_size"] > 0
             
         # Check Client 0 noise
-        n0 = clients["0"]["train_size"]
+        c0_data = clients.get("0") if "0" in clients else clients.get(0)
+        n0 = c0_data["train_size"]
         expected_noise = round(0.4 * n0)
         assert noise_meta["exact_noise_count"] == expected_noise
         

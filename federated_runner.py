@@ -161,8 +161,9 @@ class FederatedExperiment:
         else:
             with open(manifest_path, "r", encoding="utf-8") as mf:
                 manifest = json.load(mf)
-                if str(self.seed) in manifest:
-                    expected_hash = manifest[str(self.seed)]["sha256"]
+                manifest_entry = manifest.get(str(self.seed)) or manifest.get(self.seed)
+                if manifest_entry is not None:
+                    expected_hash = manifest_entry["sha256"]
                     assert self.initial_model_sha256 == expected_hash, (
                         f"Initial model hash mismatch for seed {self.seed}! "
                         f"Expected {expected_hash}, got {self.initial_model_sha256}"

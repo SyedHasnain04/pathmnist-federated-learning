@@ -18,6 +18,7 @@ INCLUDE_FILES = [
     "generate_plots.py",
     "generate_tables.py",
     "generate_report_pdf.py",
+    "collect_results.py",
     "PathMNIST_FedAvg_FedProx_Final_Execution_Plan.md",
     "PathMNIST_FedAvg_vs_FedProx_Colab.ipynb",
     "README.md",

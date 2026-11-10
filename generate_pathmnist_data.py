@@ -271,15 +271,28 @@ def build_data_pipeline():
     summary_lines.append(header)
     summary_lines.append("-" * 85)
 
+    def _get_entry(d, key):
+        if key in d:
+            return d[key]
+        if str(key) in d:
+            return d[str(key)]
+        try:
+            if int(key) in d:
+                return d[int(key)]
+        except (ValueError, TypeError):
+            pass
+        raise KeyError(f"Key {key} (or str/int equivalent) not found in {list(d.keys())}")
+
     for s in SEEDS:
-        s_data = all_manifest["seeds"][s]
+        s_data = _get_entry(all_manifest["seeds"], s)
+        c0_info = _get_entry(s_data["clients"], 0)
         summary_data["seeds"][str(s)] = {
             "total_train_samples": s_data["total_train_samples"],
-            "client_0_weight": s_data["clients"]["0"]["aggregation_weight"],
+            "client_0_weight": c0_info["aggregation_weight"],
             "clients": {}
         }
         for cid in range(NUM_CLIENTS):
-            c_info = s_data["clients"][str(cid)]
+            c_info = _get_entry(s_data["clients"], cid)
             noise_str = f"{s_data['client0_noise']['exact_noise_count']} (40%)" if cid == 0 else "0 (0.0%)"
             sha_prefix = c_info["clean_train_sha256"][:24] + "..."
             row = f"{s:<6} | Client {cid:<1} | {c_info['train_size']:<10} | {c_info['test_size']:<9} | {c_info['aggregation_weight']:<11.4f} | {noise_str:<12} | {sha_prefix:<25}"

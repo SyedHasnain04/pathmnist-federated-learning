@@ -278,8 +278,23 @@ def generate_pdf():
                 weights_str = []
                 for seed in [42, 123, 2026]:
                     seed_key = str(seed)
-                    if seed_key in psummary:
-                        c0_w = psummary[seed_key].get("0", {}).get("weight", None)
+                    s_info = (
+                        psummary.get("seeds", {}).get(seed_key)
+                        or psummary.get("seeds", {}).get(seed)
+                        or psummary.get(seed_key)
+                        or psummary.get(seed)
+                    )
+                    if s_info:
+                        c0_w = s_info.get("client_0_weight")
+                        if c0_w is None:
+                            c0_dict = (
+                                s_info.get("clients", {}).get("0")
+                                or s_info.get("clients", {}).get(0)
+                                or s_info.get("0")
+                                or s_info.get(0)
+                            )
+                            if isinstance(c0_dict, dict):
+                                c0_w = c0_dict.get("aggregation_weight") or c0_dict.get("weight")
                         if c0_w is not None:
                             weights_str.append(f"seed {seed}: {c0_w:.3f}")
                 if weights_str:
