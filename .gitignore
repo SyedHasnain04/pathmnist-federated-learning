@@ -4,6 +4,7 @@ __pycache__/
 wandb/
 results/
 results_pilot/
+results_colab/
 colab_package.zip
 *.pdf
 PathMNIST_FedAvg_vs_FedProx_Report.pdf

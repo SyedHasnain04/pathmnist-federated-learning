@@ -154,16 +154,16 @@ def update_readme_results(metrics_dir):
         md_lines.append("## 9. Empirical Results & Findings\n")
         md_lines.append(f"### Pre-Experimental μ Sweep (Noisy Condition, Seed 42)\n")
         md_lines.append(f"Optimal parameter selected: **μ = {selected_mu}** (criterion: highest mean official validation accuracy rounds 91–100; ties broken by smaller μ).\n")
-        md_lines.append("| Candidate μ | Completed Rounds | Val Acc (91-100 Mean) | Test Acc (91-100 Mean) | Val Acc (Round 100) | Selected |")
-        md_lines.append("|---|---|---|---|---|---|")
+        md_lines.append("| Candidate μ | Completed Rounds | Val Acc (91-100 Mean) | Test Acc (91-100 Mean) | Val Acc (Round 100) | Selected |\n")
+        md_lines.append("|---|---|---|---|---|---|\n")
         for r in mu_rows:
             sel_str = " **YES (Selected)**" if str(r.get("mu")) == str(selected_mu) else ""
-            md_lines.append(f"| {r.get('mu')} | {r.get('n_rounds', 100)}/100 | {r.get('val_mean_91_100')} | {r.get('test_mean_91_100')} | {r.get('val_r100')} |{sel_str} |")
+            md_lines.append(f"| {r.get('mu')} | {r.get('n_rounds', 100)}/100 | {r.get('val_mean_91_100')} | {r.get('test_mean_91_100')} | {r.get('val_r100')} |{sel_str} |\n")
 
-        md_lines.append("\n### Final 2×2 Factorial Performance Summary\n")
-        md_lines.append("Client 0 aggregation weights by seed: **Seed 42: p0 = 0.1172**, **Seed 123: p0 = 0.3423**, **Seed 2026: p0 = 0.1315**.\n")
-        md_lines.append("| Experimental Group | Seed 42 (p0=0.117) | Seed 123 (p0=0.342) | Seed 2026 (p0=0.132) | Test Acc 91-100 (Mean ± Std) | Test Acc (Round 100) | Val Acc (91-100 Mean) | C0 Holdout (Round 100) |")
-        md_lines.append("|---|---|---|---|---|---|---|---|")
+        md_lines.append("\n### Final 2×2 Factorial Performance Summary\n\n")
+        md_lines.append("Client 0 aggregation weights by seed: **Seed 42: p0 = 0.1172**, **Seed 123: p0 = 0.3423**, **Seed 2026: p0 = 0.1315**.\n\n")
+        md_lines.append("| Experimental Group | Seed 42 (p0=0.117) | Seed 123 (p0=0.342) | Seed 2026 (p0=0.132) | Test Acc 91-100 (Mean ± Std) | Test Acc (Round 100) | Val Acc (91-100 Mean) | C0 Holdout (Round 100) |\n")
+        md_lines.append("|---|---|---|---|---|---|---|---|\n")
         
         gs_map = {}
         for g in group_summary:
@@ -176,7 +176,7 @@ def update_readme_results(metrics_dir):
             t_r100 = g.get("test_r100", "N/A")
             v_late = g.get("val_mean_91_100", "N/A")
             c0_h = g.get("c0_holdout_r100", "N/A")
-            md_lines.append(f"| **{grp_name}** | {s42} | {s123} | {s2026} | {t_late} | {t_r100} | {v_late} | {c0_h} |")
+            md_lines.append(f"| **{grp_name}** | {s42} | {s123} | {s2026} | {t_late} | {t_r100} | {v_late} | {c0_h} |\n")
 
         # Dynamic sentence generation from empirical numbers (strictly without pre-baked bias)
         def parse_mean(val_str):

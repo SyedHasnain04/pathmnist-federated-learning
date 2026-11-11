@@ -1,0 +1,22 @@
+{
+  "selected_mu": 0.1,
+  "selection_criterion": "highest mean official validation accuracy over rounds 91-100; ties broken by smallest mu",
+  "candidates": {
+    "0.001": {
+      "run_name": "fedprox_sweep_mu0001",
+      "mean_val_91_100": 0.8169832067173131,
+      "n_rounds": 10
+    },
+    "0.01": {
+      "run_name": "fedprox_sweep_mu001",
+      "mean_val_91_100": 0.8274890043982406,
+      "n_rounds": 10
+    },
+    "0.1": {
+      "run_name": "fedprox_sweep_mu01",
+      "mean_val_91_100": 0.8454818072770891,
+      "n_rounds": 10
+    }
+  },
+  "timestamp": "2026-11-10 19:24:11"
+}

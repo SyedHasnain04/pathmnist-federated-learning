@@ -1,0 +1,231 @@
+{
+  "per_run_results": [
+    {
+      "run_name": "fedavg_clean_seed42",
+      "algorithm": "fedavg",
+      "condition": "clean",
+      "seed": 42,
+      "n_rounds": 100,
+      "test_r100": 0.777715877437326,
+      "val_r100": 0.8515593762495002,
+      "test_mean_91_100": 0.774874651810585,
+      "val_mean_91_100": 0.8509596161535387,
+      "c0_holdout_r100": 0.8297307546454304
+    },
+    {
+      "run_name": "fedavg_clean_seed123",
+      "algorithm": "fedavg",
+      "condition": "clean",
+      "seed": 123,
+      "n_rounds": 100,
+      "test_r100": 0.7576601671309192,
+      "val_r100": 0.8473610555777689,
+      "test_mean_91_100": 0.762924791086351,
+      "val_mean_91_100": 0.8488204718112755,
+      "c0_holdout_r100": 0.9036488767692508
+    },
+    {
+      "run_name": "fedavg_clean_seed2026",
+      "algorithm": "fedavg",
+      "condition": "clean",
+      "seed": 2026,
+      "n_rounds": 100,
+      "test_r100": 0.7901114206128134,
+      "val_r100": 0.8464614154338265,
+      "test_mean_91_100": 0.7768245125348189,
+      "val_mean_91_100": 0.8467313074770091,
+      "c0_holdout_r100": 0.9016559648529908
+    },
+    {
+      "run_name": "fedavg_noisy_seed42",
+      "algorithm": "fedavg",
+      "condition": "noisy",
+      "seed": 42,
+      "n_rounds": 100,
+      "test_r100": 0.7532033426183844,
+      "val_r100": 0.8187724910035986,
+      "test_mean_91_100": 0.7491364902506964,
+      "val_mean_91_100": 0.8180227908836466,
+      "c0_holdout_r100": 0.7538869927948426
+    },
+    {
+      "run_name": "fedavg_noisy_seed123",
+      "algorithm": "fedavg",
+      "condition": "noisy",
+      "seed": 123,
+      "n_rounds": 100,
+      "test_r100": 0.6455431754874652,
+      "val_r100": 0.6748300679728109,
+      "test_mean_91_100": 0.6500139275766018,
+      "val_mean_91_100": 0.6740403838464614,
+      "c0_holdout_r100": 0.6717309440332424
+    },
+    {
+      "run_name": "fedavg_noisy_seed2026",
+      "algorithm": "fedavg",
+      "condition": "noisy",
+      "seed": 2026,
+      "n_rounds": 100,
+      "test_r100": 0.7505571030640669,
+      "val_r100": 0.7957816873250699,
+      "test_mean_91_100": 0.7456545961002786,
+      "val_mean_91_100": 0.7945021991203518,
+      "c0_holdout_r100": 0.8286583305170666
+    },
+    {
+      "run_name": "fedprox_clean_seed42",
+      "algorithm": "fedprox",
+      "condition": "clean",
+      "seed": 42,
+      "n_rounds": 100,
+      "test_r100": 0.7658774373259053,
+      "val_r100": 0.864954018392643,
+      "test_mean_91_100": 0.7706128133704736,
+      "val_mean_91_100": 0.8645341863254699,
+      "c0_holdout_r100": 0.8577929465301479
+    },
+    {
+      "run_name": "fedprox_clean_seed123",
+      "algorithm": "fedprox",
+      "condition": "clean",
+      "seed": 123,
+      "n_rounds": 100,
+      "test_r100": 0.7756267409470752,
+      "val_r100": 0.8376649340263894,
+      "test_mean_91_100": 0.7645125348189414,
+      "val_mean_91_100": 0.8432926829268294,
+      "c0_holdout_r100": 0.9145565510972601
+    },
+    {
+      "run_name": "fedprox_clean_seed2026",
+      "algorithm": "fedprox",
+      "condition": "clean",
+      "seed": 2026,
+      "n_rounds": 100,
+      "test_r100": 0.7637883008356546,
+      "val_r100": 0.8644542183126749,
+      "test_mean_91_100": 0.7666713091922006,
+      "val_mean_91_100": 0.8630547780887646,
+      "c0_holdout_r100": 0.8823927002365665
+    },
+    {
+      "run_name": "fedprox_noisy_seed42",
+      "algorithm": "fedprox",
+      "condition": "noisy",
+      "seed": 42,
+      "n_rounds": 100,
+      "test_r100": 0.7665738161559889,
+      "val_r100": 0.8463614554178329,
+      "test_mean_91_100": 0.7538022284122563,
+      "val_mean_91_100": 0.8454818072770893,
+      "c0_holdout_r100": 0.8304891922639362
+    },
+    {
+      "run_name": "fedprox_noisy_seed123",
+      "algorithm": "fedprox",
+      "condition": "noisy",
+      "seed": 123,
+      "n_rounds": 100,
+      "test_r100": 0.6831476323119777,
+      "val_r100": 0.7966813274690124,
+      "test_mean_91_100": 0.6880362116991644,
+      "val_mean_91_100": 0.7920431827269092,
+      "c0_holdout_r100": 0.8122321776392676
+    },
+    {
+      "run_name": "fedprox_noisy_seed2026",
+      "algorithm": "fedprox",
+      "condition": "noisy",
+      "seed": 2026,
+      "n_rounds": 100,
+      "test_r100": 0.7323119777158774,
+      "val_r100": 0.8403638544582167,
+      "test_mean_91_100": 0.7289275766016713,
+      "val_mean_91_100": 0.8370051979208316,
+      "c0_holdout_r100": 0.844204123014532
+    }
+  ],
+  "group_summary": [
+    {
+      "group": "FEDAVG clean",
+      "n_seeds": 3,
+      "seed_42_test_mean_91_100": "0.7749",
+      "seed_123_test_mean_91_100": "0.7629",
+      "seed_2026_test_mean_91_100": "0.7768",
+      "test_mean_91_100_summary": "0.7715 \u00b1 0.0061",
+      "test_r100": "0.7752 \u00b1 0.0134",
+      "val_r100": "0.8485 \u00b1 0.0022",
+      "test_mean_91_100": "0.7715 \u00b1 0.0061",
+      "val_mean_91_100": "0.8488 \u00b1 0.0017",
+      "c0_holdout_r100": "0.8783 \u00b1 0.0344"
+    },
+    {
+      "group": "FEDAVG noisy",
+      "n_seeds": 3,
+      "seed_42_test_mean_91_100": "0.7491",
+      "seed_123_test_mean_91_100": "0.6500",
+      "seed_2026_test_mean_91_100": "0.7457",
+      "test_mean_91_100_summary": "0.7149 \u00b1 0.0459",
+      "test_r100": "0.7164 \u00b1 0.0501",
+      "val_r100": "0.7631 \u00b1 0.0631",
+      "test_mean_91_100": "0.7149 \u00b1 0.0459",
+      "val_mean_91_100": "0.7622 \u00b1 0.0631",
+      "c0_holdout_r100": "0.7514 \u00b1 0.0641"
+    },
+    {
+      "group": "FEDPROX clean",
+      "n_seeds": 3,
+      "seed_42_test_mean_91_100": "0.7706",
+      "seed_123_test_mean_91_100": "0.7645",
+      "seed_2026_test_mean_91_100": "0.7667",
+      "test_mean_91_100_summary": "0.7673 \u00b1 0.0025",
+      "test_r100": "0.7684 \u00b1 0.0052",
+      "val_r100": "0.8557 \u00b1 0.0127",
+      "test_mean_91_100": "0.7673 \u00b1 0.0025",
+      "val_mean_91_100": "0.8570 \u00b1 0.0097",
+      "c0_holdout_r100": "0.8849 \u00b1 0.0232"
+    },
+    {
+      "group": "FEDPROX noisy",
+      "n_seeds": 3,
+      "seed_42_test_mean_91_100": "0.7538",
+      "seed_123_test_mean_91_100": "0.6880",
+      "seed_2026_test_mean_91_100": "0.7289",
+      "test_mean_91_100_summary": "0.7236 \u00b1 0.0271",
+      "test_r100": "0.7273 \u00b1 0.0342",
+      "val_r100": "0.8278 \u00b1 0.0221",
+      "test_mean_91_100": "0.7236 \u00b1 0.0271",
+      "val_mean_91_100": "0.8248 \u00b1 0.0234",
+      "c0_holdout_r100": "0.8290 \u00b1 0.0131"
+    }
+  ],
+  "mu_sweep": {
+    "rows": [
+      {
+        "mu": 0.001,
+        "run_name": "fedprox_sweep_mu0001",
+        "n_rounds": 100,
+        "val_mean_91_100": "0.8170",
+        "test_mean_91_100": "0.7383",
+        "val_r100": "0.8172"
+      },
+      {
+        "mu": 0.01,
+        "run_name": "fedprox_sweep_mu001",
+        "n_rounds": 100,
+        "val_mean_91_100": "0.8275",
+        "test_mean_91_100": "0.7456",
+        "val_r100": "0.8283"
+      },
+      {
+        "mu": 0.1,
+        "run_name": "fedprox_sweep_mu01",
+        "n_rounds": 100,
+        "val_mean_91_100": "0.8455",
+        "test_mean_91_100": "0.7538",
+        "val_r100": "0.8464"
+      }
+    ],
+    "selected_mu": 0.1
+  }
+}

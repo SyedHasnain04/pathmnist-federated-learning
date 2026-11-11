@@ -184,19 +184,41 @@ To adhere strictly to the authoritative experimental specification and prevent e
 
 ## 12. Results
 
-<!-- RESULTS_SECTION_START -->
-> **Note:** This section is populated automatically by `collect_results.py` after the full experiment matrix completes on Colab.
-> Run `python collect_results.py --results_dir <path>` locally (after downloading results from Drive) to generate the tables below.
 
-<!-- TODO: my analysis
-Write your interpretive analysis here after reviewing the generated tables.
-Example prompts:
-  - Which algorithm converged faster and why?
-  - Did FedProx's proximal term help under non-IID label noise?
-  - How sensitive were results to the random seed?
-  - What does Client 0 accuracy reveal about label noise impact?
--->
+
+<!-- RESULTS_SECTION_START -->
+## 9. Empirical Results & Findings
+### Pre-Experimental μ Sweep (Noisy Condition, Seed 42)
+Optimal parameter selected: **μ = 0.1** (criterion: highest mean official validation accuracy rounds 91–100; ties broken by smaller μ).
+| Candidate μ | Completed Rounds | Val Acc (91-100 Mean) | Test Acc (91-100 Mean) | Val Acc (Round 100) | Selected |
+|---|---|---|---|---|---|
+| 0.001 | 100/100 | 0.8170 | 0.7383 | 0.8172 | |
+| 0.01 | 100/100 | 0.8275 | 0.7456 | 0.8283 | |
+| 0.1 | 100/100 | 0.8455 | 0.7538 | 0.8464 | **YES (Selected)** |
+
+### Final 2×2 Factorial Performance Summary
+
+Client 0 aggregation weights by seed: **Seed 42: p0 = 0.1172**, **Seed 123: p0 = 0.3423**, **Seed 2026: p0 = 0.1315**.
+
+| Experimental Group | Seed 42 (p0=0.117) | Seed 123 (p0=0.342) | Seed 2026 (p0=0.132) | Test Acc 91-100 (Mean ± Std) | Test Acc (Round 100) | Val Acc (91-100 Mean) | C0 Holdout (Round 100) |
+|---|---|---|---|---|---|---|---|
+| **FEDAVG clean** | 0.7749 | 0.7629 | 0.7768 | 0.7715 ± 0.0061 | 0.7752 ± 0.0134 | 0.8488 ± 0.0017 | 0.8783 ± 0.0344 |
+| **FEDAVG noisy** | 0.7491 | 0.6500 | 0.7457 | 0.7149 ± 0.0459 | 0.7164 ± 0.0501 | 0.7622 ± 0.0631 | 0.7514 ± 0.0641 |
+| **FEDPROX clean** | 0.7706 | 0.7645 | 0.7667 | 0.7673 ± 0.0025 | 0.7684 ± 0.0052 | 0.8570 ± 0.0097 | 0.8849 ± 0.0232 |
+| **FEDPROX noisy** | 0.7538 | 0.6880 | 0.7289 | 0.7236 ± 0.0271 | 0.7273 ± 0.0342 | 0.8248 ± 0.0234 | 0.8290 ± 0.0131 |
+
+### Data-Derived Observations (Computed Directly From Metrics)
+- Under the 40% label noise condition on Client 0, FedProx rounds 91–100 mean test accuracy was **higher than FedAvg by 0.0087** (FedProx: 0.7236 vs FedAvg: 0.7149).
+- For FedAvg, the noise degradation (clean vs noisy test accuracy rounds 91–100) was **+0.0566** (clean: 0.7715 vs noisy: 0.7149).
+- For FedProx, the noise degradation (clean vs noisy test accuracy rounds 91–100) was **+0.0437** (clean: 0.7673 vs noisy: 0.7236).
+
+```markdown
+<!-- TODO: my analysis -->
+[Insert author analysis, interpretation of LOO cosine divergences, and clinical conclusions here]
+```
 <!-- RESULTS_SECTION_END -->
+
+
 
 ---
 
@@ -230,8 +252,8 @@ are reproducible across machines running the same code and data version.
    This populates `submission/` with plots, metrics, and updates the README Results section.
 
 ### W&B Project
-Live training metrics will appear at the W&B project URL set in `WANDB_PROJECT_URL` (env var) or passed to
-`generate_report_pdf.py --wandb_url`. If you have not run the experiments yet, this URL is not yet available.
+Live training metrics and interactive charts:
+<https://wandb.ai/iamsyedhasnain04-gprec/pathmnist-federated-learning>
 
 ### GitHub Repository
 <https://github.com/syedHasnain04/pathmnist-federated-learning>
