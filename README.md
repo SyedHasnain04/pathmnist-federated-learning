@@ -1,259 +1,197 @@
-# PathMNIST Federated Learning: FedAvg vs FedProx Under Non-IID Label Noise
+# PathMNIST Federated Learning: FedAvg vs FedProx under Non-IID Data and Label Noise
 
-## 1. Experimental Objective & Design
+Links: [GitHub repository](https://github.com/syedHasnain04/pathmnist-federated-learning) | [W&B project](https://wandb.ai/iamsyedhasnain04-gprec/pathmnist-federated-learning) | One-page summary: `submission/summary.pdf`
 
-This repository contains the rigorous implementation, benchmarking, and empirical analysis of **FedAvg** versus **FedProx** under non-IID data partitioning with controlled label noise on the **PathMNIST** (MedMNIST v2) dataset.
+## 1. Objective
 
-### 2×2 Factorial Design
-The experiment evaluates four distinct experimental groups across 3 independent random seeds (**42**, **123**, **2026**), yielding **12 final runs**:
+Compare FedAvg and FedProx on PathMNIST with 5 clients, Dirichlet(alpha = 0.3) non-IID partitions, and 40% label noise on one client (Client 0). Both algorithms use identical partitions, noise assignments, initial weights, and training settings per seed. The goal is to measure the difference, not to assume FedProx wins.
 
-| Algorithm | Condition | Description | Seeds |
-|---|---|---|---|
-| **FedAvg** | **Clean** | Standard Federated Averaging on clean non-IID client partitions | 42, 123, 2026 |
-| **FedAvg** | **Noisy** | FedAvg with 40% symmetric label noise on Client 0 only | 42, 123, 2026 |
-| **FedProx** | **Clean** | Federated Proximal with frozen proximal term on clean partitions | 42, 123, 2026 |
-| **FedProx** | **Noisy** | FedProx with frozen proximal term and 40% noise on Client 0 | 42, 123, 2026 |
+### Experimental design (2 x 2, 3 seeds = 12 final runs)
 
-In addition, a pre-experimental **μ sweep** on noisy seed 42 evaluates candidates \(\mu \in \{0.001, 0.01, 0.1\}\) to freeze the optimal proximal parameter for all FedProx runs.
+| Algorithm | Clean labels | 40% noise on Client 0 |
+|---|---|---|
+| FedAvg | `fedavg_clean_seed{42,123,2026}` | `fedavg_noisy_seed{42,123,2026}` |
+| FedProx | `fedprox_clean_seed{42,123,2026}` | `fedprox_noisy_seed{42,123,2026}` |
 
----
+A mu sweep (mu in {0.001, 0.01, 0.1}; noisy setting, seed 42) selects the FedProx coefficient. The winning sweep run is reused as `fedprox_noisy_seed42`, so 14 trainings produce 12 final runs plus 2 non-selected sweep runs. All runs are logged to the W&B project above.
 
-## 2. Dataset Provenance & Official Split Preservation
+## 2. Dataset and split integrity
 
-- **Dataset:** PathMNIST (colon pathology histology images, 9 classes, RGB 28×28).
-- **Official Splits Preserved:**
-  - Official Training: 89,996 images (MD5 verified against official MedMNIST release).
-  - Official Validation: 10,004 images (used strictly for in-distribution evaluation and μ selection).
-  - Official Test: 7,180 images (used strictly for final cross-site clinical evaluation).
-- **Split Integrity Audit:** PFLlib's default dataset generator merges train and test splits into a single array before partitioning. To guarantee zero data leakage, our pipeline completely bypasses PFLlib's generator. Client partitions are generated exclusively from the official 89,996 training samples. Official validation and test sets remain pristine, read-only evaluation sets.
+- PathMNIST (MedMNIST): 28x28 RGB histopathology images, 9 classes.
+- Official splits are preserved: train 89,996, validation 10,004, test 7,180.
+- Only the official **train** split is partitioned among clients. The official **validation** split is used for model selection (mu) and in-distribution tracking. The official **test** split is used only for global evaluation.
+- PFLlib's dataset generator template (`generate_MNIST.py`) merges train and test before partitioning. This project does **not** use that behavior; `generate_pathmnist_data.py` partitions the official train split only.
+- Images are normalized per channel. Official validation/test files are hashed (SHA-256) and the hashes are checked by tests.
 
----
+## 3. Partitioning and label noise
 
-## 3. Client Partitioning & Noise Injection
+**Partition.** Class-wise Dirichlet(alpha = 0.3) over the official train split into 5 clients, with a minimum of 1,000 samples per client (pre-split). Each client's data is then split 75:25 into local train and local held-out test, deterministically per seed. All partitions are generated once per seed, saved to disk, and loaded by all four groups.
 
-1. **Non-IID Partitioning:**
-   - 5 federated clients (Client 0 through Client 4).
-   - Dirichlet distribution \(\mathrm{Dir}(\alpha=0.3)\) per class over official training images.
-   - Deterministic client assignment with pre-split sample minimum \(\ge 1,000\) per client verified across all seeds.
-   - Deterministic 75:25 stratified local split: 75% for client training, 25% for client-local in-distribution holdout evaluation.
-2. **Label Noise Injection:**
-   - **Client 0 is strictly designated as the noisy client.** Clients 1–4 receive 0% noise.
-   - Exactly 40% symmetric label noise applied exclusively to Client 0's local training labels.
-   - Noise sample count: \(n_{\mathrm{noisy}} = \mathrm{round}(0.4 \times n_0)\) using Python's round (half-to-even).
-   - Replacement labels sampled uniformly at random from \(\{0, \dots, 8\} \setminus \{y\}\) without self-replacement.
-   - Clean and noisy partition artifacts are saved independently.
+**Noise.** Client 0 only, training labels only. Exactly `round(0.4 * n0)` samples are chosen; each gets a replacement label drawn uniformly from the other 8 classes. Client 0's local test labels, the official validation labels, and the official test labels are never modified. Noise indices and original/replacement labels are saved. Clean groups use the original labels at the same indices.
 
-### Client Sample Counts & Aggregation Weights
+### Client sizes and Client 0 aggregation weight
 
-| Seed | Client 0 (Train / Noisy) | Client 1 (Train) | Client 2 (Train) | Client 3 (Train) | Client 4 (Train) | C0 Agg Weight (\(p_0\)) |
-|---|---|---|---|---|---|---|
-| **42** | 7,910 (3,164 noisy = 40.0%) | 15,460 | 12,981 | 16,113 | 15,032 | **0.1172** |
-| **123** | 23,101 (9,240 noisy = 40.0%) | 15,060 | 2,297 | 14,355 | 12,683 | **0.3423** |
-| **2026** | 8,874 (3,550 noisy = 40.0%) | 6,415 | 20,474 | 14,643 | 17,090 | **0.1315** |
-
-> **Important Note on Client 0 Aggregation Weight Variation Across Seeds:**
-> Due to Dirichlet non-IID partitioning (\(\alpha=0.3\)), Client 0's aggregation weight (\(p_0\)) differs substantially across seeds:
-> - **Seed 42:** \(p_0 = 0.1172\) (7,910 samples, 3,164 noisy)
-> - **Seed 123:** \(p_0 = 0.3423\) (23,101 samples, 9,240 noisy)
-> - **Seed 2026:** \(p_0 = 0.1315\) (8,874 samples, 3,550 noisy)
-> Because Client 0's local training labels contain 40% symmetric noise, Seed 123 exposes the global model to nearly 3× the noise mass compared to Seeds 42 and 2026. Consequently, experimental results must be interpreted both per-seed and as mean ± std across seeds; reporting only aggregate means masks this structural sensitivity. Per-seed values are presented alongside mean ± std in Table 2 (`results/tables/results.md`) and plotted as individual seed curves in `results/plots/plot1_test_accuracy_vs_rounds.png`.
-
----
-
-## 4. Model Architecture & Initialization Checkpoints
-
-- **Model:** `FedAvgCNN` from PFLlib (`in_features=3, num_classes=9, dim=1024`).
-- **Layers:** 2 Convolutional layers (16 and 32 filters, 5×5 kernel, padding=2), ReLU, 2×2 MaxPool, followed by fully connected layers (1024 → 512 → 9).
-- **Parameter Count:** 583,113 trainable parameters. No BatchNorm layers (eliminating non-trainable buffer synchronization discrepancies).
-- **Deterministic Checkpoints:** Identical initial checkpoints (`checkpoints/initial/initial_model_seed_{seed}.pt`) are generated deterministically per seed and loaded by all 4 experimental groups within that seed.
-
----
-
-## 5. Optimization & Algorithmic Equivalence
-
-- **Rounds:** 100 global communication rounds.
-- **Local Epochs:** \(E = 5\) local epochs per client per round.
-- **Batch Size:** 64.
-- **Optimizer:** Standard PyTorch `torch.optim.SGD(lr=0.01, momentum=0.9, weight_decay=0.0)`.
-- **Optimizer Lifecycle:** Fresh optimizer instance created at the beginning of each client/round training invocation. **Zero momentum carried over across communication rounds.**
-- **FedProx Formulation:**
-  \[
-  \mathcal{L}_{\mathrm{FedProx}}(w) = \mathcal{L}_{\mathrm{CE}}(w) + \frac{\mu}{2} \sum_{l} \|w_l - w_{\mathrm{global}}^t\|_2^2
-  \]
-  The proximal term is anchored to a detached snapshot \(w_{\mathrm{global}}^t\) taken at the start of the round.
-- **Audit of PFLlib:** PFLlib's `PerturbedGradientDescent` optimizer omits momentum entirely. To preserve the specification's strict SGD momentum (0.9) requirement, PyTorch SGD is used with explicit proximal loss penalty.
-- **Deterministic Equivalence Test:** Unit test verifies that with \(\mu=0.0\), FedProx is numerically identical to FedAvg (\(\max |\Delta w| < 10^{-7}\)).
-
----
-
-## 6. Aggregation & Update Metrics
-
-### Aggregation Formula
-Sample-count-weighted aggregation with full participation (\(\mathrm{join\_ratio}=1.0\)):
-\[
-w_{\mathrm{global}}^{t+1} = \sum_{k=0}^{4} p_k w_{k,\mathrm{local}}^t, \quad p_k = \frac{n_k}{\sum_j n_j}
-\]
-
-### Diagnostic Update Metrics (Pre-Aggregation)
-1. **Per-client update:** \(\Delta_k^t = w_{k,\mathrm{local}}^t - w_{\mathrm{global}}^t\).
-2. **Update L2 norm:** \(\|\Delta_k^t\|_2\).
-3. **Aggregated global update:** \(\Delta_{\mathrm{global}}^t = \sum_k p_k \Delta_k^t\).
-4. **Standard Cosine Similarity:** \(\cos(\Delta_k^t, \Delta_{\mathrm{global}}^t)\).
-5. **Leave-One-Out Cosine Similarity:** \(\cos(\Delta_k^t, \Delta_{-k}^t)\), where \(\Delta_{-k}^t = \frac{\sum_{j \neq k} n_j \Delta_j^t}{\sum_{j \neq k} n_j}\).
-
----
-
-## 7. Evaluation & Metric Isolation
-
-| Evaluation Type | Split Source | Samples | Purpose |
-|---|---|---|---|
-| **Official Validation** | `data/partitions/official/val.npz` | 10,004 | In-distribution tracking & μ selection |
-| **Official Global Test** | `data/partitions/official/test.npz` | 7,180 | Final cross-site clinical generalization |
-| **Client Local Holdout** | `data/partitions/seed_{seed}/{cond}/test/{cid}.npz` | ~2,000–7,000 | In-distribution client holdout performance |
-
----
-
-## 8. μ Sweep Specification & Selection
-
-- **Candidates:** \(\mu \in \{0.001, 0.01, 0.1\}\).
-- **Condition:** Noisy setting, seed 42, 100 rounds.
-- **Selection Rule:** Highest mean official validation accuracy across rounds 91–100. Ties broken in favor of smaller μ.
-- **Freezing:** Selected μ frozen for all FedProx runs (clean and noisy) across seeds 42, 123, 2026.
-- **Reuse:** Winning sweep run reused directly as `fedprox_noisy_seed42`.
-
----
-
-## 9. Deliverables & Artifacts
-
-- `PathMNIST_FedAvg_vs_FedProx_Report.pdf`: One-page executive summary PDF report.
-- `results/tables/results.md` & `all_results.json`: Full numerical result tables.
-- `results/plots/`: High-resolution figures for all required diagnostic and evaluation curves.
-- `DEVIATIONS.md`: Complete record of environmental adaptations and audited PFLlib behaviors.
-- `tests/`: 8 comprehensive correctness tests passing.
-
----
-
-## 10. How to Run & Reproduce
-
-```bash
-# 1. Run all unit and correctness tests
-python -m pytest tests/ -v
-
-# 2. Run the automated experiment orchestrator (executes sweep, μ selection, and all 12 runs)
-python orchestrator.py
-
-# 3. Generate tables, plots, and PDF report from saved JSON logs
-python generate_tables.py
-python generate_plots.py
-python generate_report_pdf.py
-```
-
----
-
-## 11. PFLlib Modifications, Licensing & Attribution
-
-### Attribution & Upstream License
-This project utilizes the `FedAvgCNN` backbone model architecture from **PFLlib** (Personalized Federated Learning Library) developed by Jianxu Ji et al.
-PFLlib is licensed under the **Apache License, Version 2.0**. In accordance with Section 4 of the Apache License 2.0, the complete, unmodified original license file is preserved at [`PFLlib/LICENSE`](file:///c:/Users/Syedh/Downloads/Research/llmXfedrated/PFLlib/LICENSE).
-
-### Comprehensive Audit of PFLlib Modifications
-To adhere strictly to the authoritative experimental specification and prevent experimental invalidity, the following modifications and architectural decouplings were implemented:
-
-1. **Decoupled Data Pipeline (Eliminated Train/Test Leakage):**
-   - *Upstream PFLlib behavior:* Dataset generators in PFLlib (e.g., `generate_MNIST.py`) merge official training and testing splits into a single unified array prior to Dirichlet partitioning.
-   - *Modification:* PFLlib's data generation logic is completely bypassed. Our data generator (`generate_pathmnist_data.py`) partitions solely from the 89,996 official PathMNIST training images. Official in-distribution validation (10,004) and official cross-site test (7,180) splits remain completely detached and untouched.
-
-2. **Momentum-Preserving Optimizer State Lifecycle:**
-   - *Upstream PFLlib behavior:* PFLlib's `PerturbedGradientDescent` optimizer implementation omits momentum entirely.
-   - *Modification:* Replaced with standard PyTorch `torch.optim.SGD(lr=0.01, momentum=0.9)`. A fresh optimizer instance is created for each client at the beginning of each round, ensuring momentum buffers from round $t$ never bleed into round $t+1$.
-
-3. **Detached Snapshot Anchoring for FedProx:**
-   - *Upstream PFLlib behavior:* FedProx implementations in PFLlib can exhibit parameter reference sharing issues across local steps.
-   - *Modification:* In `federated_runner.py`, a detached, cloned copy of global parameters $w_{\mathrm{global}}^t$ is captured at round start. The proximal objective $\frac{\mu}{2} \sum \|w - w_{\mathrm{global}}^t\|_2^2$ is penalized directly in the backward pass.
-
-4. **Pre-Aggregation Diagnostic Metrics:**
-   - *Upstream PFLlib behavior:* PFLlib records basic training and test accuracy without gradient alignment diagnostics.
-   - *Modification:* Captured local parameter vectors prior to aggregation to compute per-client update L2 norms, standard cosine similarities, and leave-one-out cosine similarities against peer client updates.
-
-5. **Deterministic Checkpoint Harmonization:**
-   - *Upstream PFLlib behavior:* Initializes models randomly upon client construction.
-   - *Modification:* Implemented deterministic initial checkpoint generation per seed with SHA-256 manifest verification, guaranteeing all 4 experimental groups within a seed begin from identical parameters.
-
-
----
-
-## 12. Results
-
-
-
-<!-- RESULTS_SECTION_START -->
-## 9. Empirical Results & Findings
-### Pre-Experimental μ Sweep (Noisy Condition, Seed 42)
-Optimal parameter selected: **μ = 0.1** (criterion: highest mean official validation accuracy rounds 91–100; ties broken by smaller μ).
-| Candidate μ | Completed Rounds | Val Acc (91-100 Mean) | Test Acc (91-100 Mean) | Val Acc (Round 100) | Selected |
-|---|---|---|---|---|---|
-| 0.001 | 100/100 | 0.8170 | 0.7383 | 0.8172 | |
-| 0.01 | 100/100 | 0.8275 | 0.7456 | 0.8283 | |
-| 0.1 | 100/100 | 0.8455 | 0.7538 | 0.8464 | **YES (Selected)** |
-
-### Final 2×2 Factorial Performance Summary
-
-Client 0 aggregation weights by seed: **Seed 42: p0 = 0.1172**, **Seed 123: p0 = 0.3423**, **Seed 2026: p0 = 0.1315**.
-
-| Experimental Group | Seed 42 (p0=0.117) | Seed 123 (p0=0.342) | Seed 2026 (p0=0.132) | Test Acc 91-100 (Mean ± Std) | Test Acc (Round 100) | Val Acc (91-100 Mean) | C0 Holdout (Round 100) |
+| Seed | Client 0 train (noisy) | Client 1 | Client 2 | Client 3 | Client 4 | Total train | C0 weight p0 |
 |---|---|---|---|---|---|---|---|
-| **FEDAVG clean** | 0.7749 | 0.7629 | 0.7768 | 0.7715 ± 0.0061 | 0.7752 ± 0.0134 | 0.8488 ± 0.0017 | 0.8783 ± 0.0344 |
-| **FEDAVG noisy** | 0.7491 | 0.6500 | 0.7457 | 0.7149 ± 0.0459 | 0.7164 ± 0.0501 | 0.7622 ± 0.0631 | 0.7514 ± 0.0641 |
-| **FEDPROX clean** | 0.7706 | 0.7645 | 0.7667 | 0.7673 ± 0.0025 | 0.7684 ± 0.0052 | 0.8570 ± 0.0097 | 0.8849 ± 0.0232 |
-| **FEDPROX noisy** | 0.7538 | 0.6880 | 0.7289 | 0.7236 ± 0.0271 | 0.7273 ± 0.0342 | 0.8248 ± 0.0234 | 0.8290 ± 0.0131 |
+| 42 | 7,910 (3,164) | 15,460 | 12,981 | 16,113 | 15,032 | 67,496 | 0.1172 |
+| 123 | 23,101 (9,240) | 15,060 | 2,297 | 14,355 | 12,683 | 67,496 | 0.3423 |
+| 2026 | 8,874 (3,550) | 6,415 | 20,474 | 14,643 | 17,090 | 67,496 | 0.1315 |
 
-### Data-Derived Observations (Computed Directly From Metrics)
-- Under the 40% label noise condition on Client 0, FedProx rounds 91–100 mean test accuracy was **higher than FedAvg by 0.0087** (FedProx: 0.7236 vs FedAvg: 0.7149).
-- For FedAvg, the noise degradation (clean vs noisy test accuracy rounds 91–100) was **+0.0566** (clean: 0.7715 vs noisy: 0.7149).
-- For FedProx, the noise degradation (clean vs noisy test accuracy rounds 91–100) was **+0.0437** (clean: 0.7673 vs noisy: 0.7236).
+Client 0's aggregation weight differs about three-fold across seeds, so the noisy client has far more influence on seed 123. Results are therefore reported per seed as well as mean +/- std.
 
-```markdown
-<!-- TODO: my analysis -->
-[Insert author analysis, interpretation of LOO cosine divergences, and clinical conclusions here]
+## 4. Model and training configuration
+
+| Item | Value |
+|---|---|
+| Model | PFLlib `FedAvgCNN`, `in_features=3`, `num_classes=9`, `dim=1024` |
+| Layers | Conv(3->32, 5x5) - ReLU - MaxPool2, Conv(32->64, 5x5) - ReLU - MaxPool2, FC 1024->512, FC 512->9 |
+| Parameters | 583,113 (no BatchNorm) |
+| Rounds / local epochs / batch size | 100 / 5 / 64 |
+| Optimizer | SGD, lr 0.01, momentum 0.9, weight decay 0 |
+| Participation | 100% (`join_ratio = 1.0`) |
+| Aggregation | Sample-count weighted |
+| Initialization | One initial checkpoint per seed, SHA-256 checked against `checkpoints/initial/manifest.json`, loaded by all four groups |
+
+<!-- VERIFY: layer description matches the model code; the parameter count 583,113 corresponds to 32/64 filters, 5x5 kernels, no padding -->
+
+## 5. Algorithms
+
+**FedAvg.** Clients train locally; the server averages client weights, weighted by local training sample count.
+
+**FedProx.** Local objective `F_k(w) + (mu/2) * ||w - w_t||^2`, where `w_t` is a detached copy of the global model taken at the start of the round. The penalty is added to the local loss, so it enters the gradient. A fresh SGD optimizer is created every round, so momentum is never carried across rounds. With mu = 0, FedProx matches FedAvg numerically (unit test, max parameter difference below 1e-7 on CPU).
+
+**mu selection.** Highest mean official validation accuracy over rounds 91-100 on the noisy seed-42 run; ties go to the smaller mu. Selected: **mu = 0.1**.
+
+## 6. Update metrics
+
+Computed every round from flattened trainable parameters, before aggregation:
+
+- Update: `Delta_k = w_k_local - w_global`; L2 norm `||Delta_k||_2`.
+- Aggregated update: `Delta_global = sum_k p_k * Delta_k`, with `p_k = n_k / sum_j n_j`.
+- Standard cosine: `cos(Delta_k, Delta_global)`.
+- Leave-one-out cosine: `cos(Delta_k, Delta_-k)`, where `Delta_-k` is the sample-weighted mean of the other four client updates. This removes the bias from the client being part of the aggregate it is compared against.
+- Cosine is logged as undefined if either norm is zero.
+
+## 7. Evaluation
+
+| Evaluation | Data | Meaning |
+|---|---|---|
+| Global test accuracy/loss (every round) | Official test (7,180) | **Cross-site** generalization |
+| Validation accuracy/loss (every round) | Official validation (10,004) | In-distribution |
+| Per-client accuracy/loss (every round) | Each client's local held-out 25% | In-distribution, client-specific |
+| Confusion matrix | Official test, final round | |
+
+**Distribution shift.** The official PathMNIST test set comes from a different clinical site than train/validation. Cross-site test accuracy is therefore lower than in-distribution accuracy. This is expected and not an implementation bug. Validation and client holdout metrics should not be compared directly with the cross-site test metric.
+
+Reported numbers: round 100 and the mean of rounds 91-100 (robustness to round-to-round oscillation).
+
+## 8. Results
+
+All runs: 100 rounds, NVIDIA Tesla T4 (recorded per run in `history.json` under `env.gpu_name`). <!-- VERIFY: GPU name -->
+
+### mu sweep (FedProx, noisy, seed 42)
+
+| mu | Val acc (mean 91-100) | Test acc (mean 91-100) | Val acc (round 100) | Selected |
+|---|---|---|---|---|
+| 0.001 | 0.8170 | 0.7383 | 0.8172 | |
+| 0.01 | 0.8275 | 0.7456 | 0.8283 | |
+| 0.1 | 0.8455 | 0.7538 | 0.8464 | yes |
+
+Validation accuracy rose monotonically with mu and the best value is at the edge of the grid; larger mu values were not tested.
+
+### Cross-site test accuracy (mean of rounds 91-100)
+
+| Group | Seed 42 (p0=0.117) | Seed 123 (p0=0.342) | Seed 2026 (p0=0.132) | Mean +/- std |
+|---|---|---|---|---|
+| FedAvg clean | 0.7749 | 0.7629 | 0.7768 | 0.7715 +/- 0.0061 |
+| FedAvg noisy | 0.7491 | 0.6500 | 0.7457 | 0.7149 +/- 0.0459 |
+| FedProx clean | 0.7706 | 0.7645 | 0.7667 | 0.7673 +/- 0.0025 |
+| FedProx noisy | 0.7538 | 0.6880 | 0.7289 | 0.7236 +/- 0.0271 |
+
+### Validation accuracy, in-distribution (mean of rounds 91-100)
+
+| Group | Seed 42 | Seed 123 | Seed 2026 | Mean +/- std |
+|---|---|---|---|---|
+| FedAvg clean | 0.8510 | 0.8488 | 0.8467 | 0.8488 +/- 0.0017 |
+| FedAvg noisy | 0.8180 | 0.6740 | 0.7945 | 0.7622 +/- 0.0631 |
+| FedProx clean | 0.8645 | 0.8433 | 0.8631 | 0.8570 +/- 0.0097 |
+| FedProx noisy | 0.8455 | 0.7920 | 0.8370 | 0.8248 +/- 0.0234 |
+
+### Per-client and round-100 results
+
+Round-100 test accuracy, per-client holdout accuracy, and all per-run values are in `submission/metrics/results.md` and `submission/metrics/all_results.json`. Client 0 clean-holdout accuracy at round 100 (mean +/- std): FedAvg clean 0.878 +/- 0.034, FedAvg noisy 0.751 +/- 0.064, FedProx clean 0.885 +/- 0.023, FedProx noisy 0.829 +/- 0.013.
+
+### Derived comparisons (from the tables above)
+
+| Comparison | Seed 42 | Seed 123 | Seed 2026 | Mean |
+|---|---|---|---|---|
+| FedAvg test drop from noise (clean - noisy) | 0.0258 | 0.1129 | 0.0311 | 0.0566 |
+| FedProx test drop from noise | 0.0168 | 0.0765 | 0.0378 | 0.0437 |
+| FedAvg val drop from noise | 0.0330 | 0.1748 | 0.0522 | 0.0866 |
+| FedProx val drop from noise | 0.0190 | 0.0513 | 0.0261 | 0.0321 |
+| Noisy: FedProx - FedAvg, test | +0.0047 | +0.0380 | -0.0168 | +0.0087 |
+| Noisy: FedProx - FedAvg, val | +0.0275 | +0.1180 | +0.0425 | +0.0627 |
+
+Plots (all in `submission/plots/`): cross-site test accuracy and loss, per-client accuracy, validation accuracy, update L2 norms, standard cosine, leave-one-out cosine, client class-distribution heatmap, aggregation weights, mu sweep.
+
+## 9. Analysis
+
+<!-- TODO: edit after checking the update-norm and cosine plots for Client 0 -->
+
+**Draft (edit to match the plots):**
+
+Under 40% label noise on Client 0, FedAvg's cross-site test accuracy fell from 0.772 to 0.715 (mean of rounds 91-100). The drop was largest on seed 123 (0.113), where Client 0 carries the largest aggregation weight (p0 = 0.342), and smaller on seeds 42 and 2026 (0.026 and 0.031).
+
+FedProx (mu = 0.1) reduced the in-distribution damage from noise in all three seeds: the validation-accuracy drop averaged 0.032 for FedProx versus 0.087 for FedAvg, and Client 0's clean-holdout accuracy was higher (0.829 vs 0.751 at round 100). On the clean setting, FedProx and FedAvg were nearly equal on cross-site test accuracy (0.767 vs 0.772) and differed by 0.008 on validation accuracy.
+
+On the cross-site test set, FedProx's advantage under noise was inconsistent: +0.005, +0.038, and -0.017 on seeds 42, 123, and 2026 (mean +0.009), which is smaller than the across-seed standard deviation (0.027 to 0.046). With three seeds, no significance claim is made. The data are consistent with FedProx mitigating the in-distribution effect of the noisy client but do not show a reliable cross-site improvement.
+
+Update-metric observations: [FILL IN from the Client 0 L2-norm and standard/leave-one-out cosine plots, clean vs noisy, FedAvg vs FedProx. State plainly if no clear pattern is visible.]
+
+## 10. Limitations
+
+1. Three seeds give weak variability estimates; no significance tests are reported.
+2. Client 0's aggregation weight varies from 0.117 to 0.342 across seeds, which dominates the variance of the noisy groups. Seed 123 carries most of the noise effect.
+3. mu was chosen on one seed (42) using in-distribution validation accuracy, which may not predict cross-site performance. The selected mu = 0.1 is at the edge of the swept grid.
+4. A stronger proximal term restricts all local drift, not only noise-driven drift. The small gain on clean data argues against a pure regularization effect but does not rule it out.
+5. SGD momentum (0.9) changes the practical effect of the proximal term, so mu is not directly comparable to values from the original FedProx paper.
+6. Cross-site test accuracy reflects a clinical-site distribution shift. Per-client holdout sets are small and non-IID, so per-client accuracies are noisy.
+7. Runs used a CUDA GPU; results are not bit-identical to CPU runs. On the Colab T4, 10 of 11 tests passed; `test_mu_zero_equivalence_cuda_tolerant` failed at its 1e-5 tolerance (max difference 1.09e-4). <!-- UPDATE: replace with the diagnosed noise floor / fixed test result -->
+
+## 11. PFLlib usage and modifications
+
+This project uses the `FedAvgCNN` architecture from [PFLlib](https://github.com/TsingZ0/PFLlib) (Apache License 2.0; the license is kept at `PFLlib/LICENSE`). The training loop, FedAvg/FedProx logic, data pipeline, and metrics are implemented in this repository's own code (`federated_runner.py`, `generate_pathmnist_data.py`, `metrics_evaluator.py`) rather than by running PFLlib's servers and clients. Differences from PFLlib:
+
+1. **Data pipeline.** PFLlib's generator merges official train and test before partitioning. Replaced with a generator that partitions only the official train split and keeps validation and test separate.
+2. **Optimizer.** PFLlib's FedProx client uses `PerturbedGradientDescent`, which has no momentum. This project uses `torch.optim.SGD` (momentum 0.9) with an explicit proximal loss term, and a fresh optimizer each round.
+3. **Proximal reference.** The round-start global parameters are cloned and detached once per round and used as the fixed reference. <!-- VERIFY: confirm against your PFLlib audit notes in DEVIATIONS.md; do not claim upstream bugs you did not observe -->
+4. **Diagnostics.** Per-client update norms and standard/leave-one-out cosine similarities are computed from local weights before aggregation.
+5. **Initialization.** One initial checkpoint per seed with SHA-256 verification, shared by all four groups.
+
+See `DEVIATIONS.md` for the full record.
+
+## 12. Reproducing
+
+Tests: `python -m pytest tests/ -v` (11 tests: data integrity, noise integrity, model dimensions, init-hash equality, evaluator correctness, update metrics, optimizer lifecycle, mu = 0 equivalence, resume equivalence).
+
+Full experiments ran on a Colab T4 (about [FILL] minutes per run):
+
+1. Open `PathMNIST_FedAvg_vs_FedProx_Colab.ipynb` in Google Colab and set the runtime to GPU.
+2. Add `WANDB_API_KEY` in Colab Secrets (key from https://wandb.ai/authorize). Never commit the key.
+3. Upload `colab_package.zip`, mount Google Drive, and run the cells in order (data generation, checkpoint verification, tests, pilot, full orchestrator).
+4. Download the results folder from Drive and run `python collect_results.py --results_dir <path>` to populate `submission/`.
+
+Seeds: 42, 123, 2026. Partitions are generated once per seed and saved (hashes in `data/partitions/manifest.json`). The same code path produced all reported runs.
+
+## 13. Repository layout
+
 ```
-<!-- RESULTS_SECTION_END -->
-
-
-
----
-
-## 13. Reproducing on Google Colab
-
-### Hardware
-GPU type is recorded automatically in each run's `history.json` under `env.gpu_name` and `env.torch_version`.
-After running `collect_results.py`, check `submission/metrics/*_history.json` to see the hardware used.
-Expected Colab hardware: **NVIDIA T4 or A100 GPU**.
-
-> ⚠️ **CUDA vs CPU Numerical Note:** Results produced on a CUDA GPU are **not bit-identical** to CPU results.
-> FP32 parallel-reduction on CUDA is non-associative. The μ=0 FedProx ≡ FedAvg equivalence test uses a
-> CUDA-tolerant tolerance of `1e-5` instead of the CPU tolerance of `1e-7`.
-> All reported results were obtained on GPU hardware.
-
-### Seeds
-Experiments use three independent random seeds: **42, 123, 2026**.
-Dirichlet partitioning (α=0.3) is seeded deterministically per seed, so partition hashes and client sizes
-are reproducible across machines running the same code and data version.
-
-### Steps
-1. Open [`PathMNIST_FedAvg_vs_FedProx_Colab.ipynb`](https://github.com/syedHasnain04/pathmnist-federated-learning/blob/master/PathMNIST_FedAvg_vs_FedProx_Colab.ipynb) in Google Colab.
-2. Set runtime to GPU: **Runtime → Change runtime type → T4 GPU**.
-3. Add `WANDB_API_KEY` to Colab Secrets (key icon in left sidebar). Get your key from <https://wandb.ai/authorize>.
-4. Upload `colab_package.zip` (≈ 6 MB) to the Colab file browser or place it in your Google Drive.
-5. Run all cells sequentially (Steps 1–13).
-6. After all runs complete, download the results directory from Drive and run locally:
-   ```bash
-   python collect_results.py --results_dir /path/to/downloaded/results
-   ```
-   This populates `submission/` with plots, metrics, and updates the README Results section.
-
-### W&B Project
-Live training metrics and interactive charts:
-<https://wandb.ai/iamsyedhasnain04-gprec/pathmnist-federated-learning>
-
-### GitHub Repository
-<https://github.com/syedHasnain04/pathmnist-federated-learning>
+dataset / data generation:  generate_pathmnist_data.py, generate_initial_models.py
+training:                   federated_runner.py, orchestrator.py, metrics_evaluator.py
+reporting:                  generate_tables.py, generate_plots.py, generate_report_pdf.py, collect_results.py
+tests/                      11 correctness tests
+checkpoints/initial/        per-seed initial models + manifest.json
+submission/                 plots/, metrics/, summary.pdf
+PFLlib/                     upstream library (Apache 2.0), model architecture used
+DEVIATIONS.md               audited differences from PFLlib and environment notes
+```
