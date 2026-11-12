@@ -146,7 +146,7 @@ FedProx (mu = 0.1) reduced the in-distribution damage from noise in all three se
 
 On the cross-site test set, FedProx's advantage under noise was inconsistent: +0.005, +0.038, and -0.017 on seeds 42, 123, and 2026 (mean +0.009), which is smaller than the across-seed standard deviation (0.027 to 0.046). With three seeds, no significance claim is made. The data are consistent with FedProx mitigating the in-distribution effect of the noisy client but do not show a reliable cross-site improvement.
 
-Update-metric observations: [FILL IN from the Client 0 L2-norm and standard/leave-one-out cosine plots, clean vs noisy, FedAvg vs FedProx. State plainly if no clear pattern is visible.]
+
 
 ## 10. Limitations
 
