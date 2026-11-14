@@ -138,7 +138,7 @@ Plots (all in `submission/plots/`): cross-site test accuracy and loss, per-clien
 
 <!-- TODO: edit after checking the update-norm and cosine plots for Client 0 -->
 
-**Draft (edit to match the plots):**
+<!--**Draft (edit to match the plots):** -->
 
 Under 40% label noise on Client 0, FedAvg's cross-site test accuracy fell from 0.772 to 0.715 (mean of rounds 91-100). The drop was largest on seed 123 (0.113), where Client 0 carries the largest aggregation weight (p0 = 0.342), and smaller on seeds 42 and 2026 (0.026 and 0.031).
 
